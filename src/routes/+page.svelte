@@ -1,12 +1,12 @@
 <script lang="ts">
-    // import "@picocss/pico";
-
     import type { HiScore } from '$lib/HiScoreDisplay.svelte';
     import HiScoreDisplay from '$lib/HiScoreDisplay.svelte';
     import CodeEditor from '$lib/CodeEditor.svelte';
     import PuzzleRendering from '$lib/PuzzleRendering.svelte';
     import { onMount } from 'svelte';
     import { type WalletClient, createWalletClient, custom, getAccount, type Account } from 'viem';
+    import challengeCode from '$lib/sol/PuzzleBox.sol?raw';
+    import solutionStubCode from '$lib/sol/Solution.sol?raw';
 
     export let data;
     let client: WalletClient;
@@ -81,9 +81,9 @@
         <HiScoreDisplay hiScores={data.hiScores} scrollSpeed={2000} scrollPause={2500}></HiScoreDisplay>
     </div>
     <div class="challenge">
-        <CodeEditor readOnly contents={data.challengeCode}></CodeEditor>
+        <CodeEditor readOnly contents={challengeCode}></CodeEditor>
     </div>
     <div class="solution">
-        <CodeEditor contents={data.solutionCode} on:solved={onSolved}></CodeEditor>
+        <CodeEditor contents={solutionStubCode} on:solved={onSolved}></CodeEditor>
     </div>
 </div>

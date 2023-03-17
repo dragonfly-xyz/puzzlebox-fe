@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { createEventDispatcher } from "svelte";
+    import { compile, simulate } from "$lib/puzzle";
+    import { createEventDispatcher, onMount } from "svelte";
 
     export let readOnly = false;
     export let error: string | null = null;
@@ -11,8 +12,10 @@
         navigator.clipboard.writeText(contents);
     }
 
-    function solve() {
-        dispatch('solved', contents);
+    async function solve() {
+        const artifacts = await compile(contents);
+        console.log(artifacts);
+        console.log(await simulate(artifacts));
     }
 </script>
 

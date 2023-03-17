@@ -1,5 +1,4 @@
 import type { HiScore } from '$lib/HiScoreDisplay.svelte';
-import { PUBLIC_CHALLENGE_SOL_URL as CHALLENGE_SOL_URL } from "$env/static/public";
 
 
 const HI_SCORES: HiScore[] = [
@@ -14,25 +13,12 @@ const HI_SCORES: HiScore[] = [
     { name: 'elitehaxor.eth', score: 419441 },
 ];
 
-const SOLUTION_CODE = `// SPDX-License-Identifier: UNLICENSED
-contract Solution {
-    function solve(PuzzleBox puzzle) external {
-        // open the box...
-    }
-}
-`;
-
 export interface PageData {
-    challengeCode: string;
-    solutionCode: string;
     hiScores: HiScore[];
 }
 
 export async function load({ fetch }): Promise<PageData> {
-    const resp = await fetch(CHALLENGE_SOL_URL);
     return {
-        challengeCode: await resp.text(),
         hiScores: HI_SCORES,
-        solutionCode: SOLUTION_CODE,
     };
 }

@@ -21,6 +21,10 @@
         font-family: 'VT323';
         src: url('/VT323-Regular.ttf') format('truetype');
     }
+    @font-face {
+        font-family: 'Comic Mono';
+        src: url('/ComicMono.ttf') format('truetype');
+    }
 
     header {
         font-family: 'Silkscreen', monospace;

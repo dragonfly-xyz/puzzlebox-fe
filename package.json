@@ -29,6 +29,6 @@
 		"ganache": "^7.7.7",
 		"solc": "^0.8.19",
 		"svelte-sequential-preprocessor": "^1.0.0",
-		"viem": "^0.1.9"
+		"viem": "^0.1.21"
 	}
 }

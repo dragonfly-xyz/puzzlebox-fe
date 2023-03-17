@@ -26,7 +26,7 @@
             </T.OrthographicCamera>
             <GLTF url="/puzzlebox.glb" position={[0,10,0]} rotation={{x: 0, y: degToRad(45), z: 0}} />
             {#if scene}
-                <Pass pass={new RenderPixelatedPass(2, scene, camera, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
+                <Pass pass={new RenderPixelatedPass(3.5, scene, camera, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
             {/if}
         </T.Scene>
     </Canvas>
