@@ -1,6 +1,6 @@
 import { provider as createGanacheProvider } from 'ganache';
-import type { Abi, AbiEvent } from 'abitype';
-import { createPublicClient, createWalletClient, custom, decodeEventLog, getAccount, type Log, type WalletClient } from 'viem';
+import { parseAbiParameters, type Abi, type AbiEvent } from 'abitype';
+import { createPublicClient, createWalletClient, custom, decodeAbiParameters, decodeEventLog, getAccount, verifyMessage, type Log, type TransactionReceipt, type WalletClient } from 'viem';
 import runnerCode from '$lib/sol/Runner.sol?raw';
 import challengeCode from '$lib/sol/PuzzleBox.sol?raw';
 
@@ -66,6 +66,7 @@ export interface DecodedEvent {
 export interface SimResults {
     gasUsed: number;
     puzzleEvents: DecodedEvent[];
+    error?: string;
 }
 
 export interface ContractCompilerArtifact {
@@ -180,7 +181,7 @@ export async function simulate(artifacts: CompilerArtifacts): Promise<SimResults
     } as any); // HACK: deployContract param type doesn't define `value`.
     let receipt = await pc.waitForTransactionReceipt({ hash: txId });
     await provider.disconnect();
-    return decodeSimResultsFromEvents(artifacts, receipt.contractAddress!, receipt.logs);
+    return simResultsFromReceipt(artifacts, receipt.contractAddress!, receipt);
 }
 
 function mergeEventAbis(...abis: Abi[]): Abi {
@@ -192,12 +193,17 @@ function mergeEventAbis(...abis: Abi[]): Abi {
     ));
 }
 
-function decodeSimResultsFromEvents(artifacts: CompilerArtifacts, runnerAddress: string, logs: Log[]): SimResults {
+function simResultsFromReceipt(artifacts: CompilerArtifacts, runnerAddress: string, receipt: TransactionReceipt): SimResults {
     let puzzleEvents: DecodedEvent[] = [];
     let puzzle: string | undefined;
     let gasUsed: number | undefined;
+    let error: string | undefined;
 
-    for (const log of logs) {
+    if (receipt.status !== 'success') {
+        throw new Error(`Transaction failed.`);
+    }
+
+    for (const log of receipt.logs) {
         let decoded;
         try {
             decoded = decodeEventLog({
@@ -218,8 +224,11 @@ function decodeSimResultsFromEvents(artifacts: CompilerArtifacts, runnerAddress:
             }
             if (decoded.eventName === 'Complete') {
                 gasUsed = Number((decoded.args as any).gasUsed as BigInt);
-                continue;
+            } else {
+                console.log(decoded);
+                error = tryParseError((decoded.args as any).error);
             }
+            continue;
         }
         if (isSameAddress(log.address, puzzle || '')) {
             puzzleEvents.push(decoded as DecodedEvent);
@@ -228,7 +237,20 @@ function decodeSimResultsFromEvents(artifacts: CompilerArtifacts, runnerAddress:
     return {
         gasUsed: gasUsed!,
         puzzleEvents,
+        error,
     };
+}
+
+function tryParseError(rawError: string): string {
+    if (rawError.startsWith('0x08c379a0')) {
+        return (decodeAbiParameters(
+            parseAbiParameters('string err'),
+            `0x${rawError.slice(10)}`,
+        ) as any)[0];
+    } else if (rawError.startsWith('0x4e487b71')) {
+        return 'panic';
+    }
+    return rawError;
 }
 
 function isSameAddress(a: string, b: string): boolean {

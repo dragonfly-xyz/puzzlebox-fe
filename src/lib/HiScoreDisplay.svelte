@@ -15,7 +15,7 @@
     }
 
     let scoresElem: HTMLElement;
-    let scrollTimer: number;
+    let scrollTimer: NodeJS.Timer;
     const SCROLL_INTERVAL = 250;
     export let scrollSpeed = 1500;
     export let scrollPause = 1000;
@@ -102,6 +102,11 @@
         text-align: right;
     }
 
+    .more {
+        text-align: right;
+        text-decoration: none;
+    }
+
     @keyframes blink {
         0% { opacity: 100% };
         50% { opacity: 15%; }
@@ -113,13 +118,18 @@
     <div class="header">HI SCORES</div>
     <div class="clip" bind:this={scoresElem}>
         <div>
-            {#each sortedHiScores as hs, idx}
+            {#each sortedHiScores.slice(0,10) as hs, idx}
                 <div class="entry">
                     <div>{ idx + 1}.</div>
                     <div>{ hs.name }</div>
                     <div>{ formatScore(hs.score) }</div>
                 </div>
             {/each}
+            {#if sortedHiScores.length > 10}
+            <div class="more">
+                <a href="/hi-scores" target="_blank">...more &gt;&gt;</a>
+            </div>
+            {/if}
         </div>
     </div>
 </div>

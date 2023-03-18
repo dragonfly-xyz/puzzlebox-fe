@@ -66,15 +66,31 @@
         content: ' • ';
         white-space: pre;
     }
+    footer {
+        display: flex;
+        flex-direction: column;
+        align-items: end;
+        padding: 0 2em;
+        font-family: 'Silkscreen', monospace;
+    }
+    footer .dfly {
+        letter-spacing: -0.25ex;
+        outline: 0;
+    }
 </style>
 
 <header>
     <div class="banner"><span class="df-ascii">&gt;|&lt;</span><span class="text">Puzzlebox<span class="ext">.sol</span></span></div>
     <div class="quick-links">
-        <div><a>github</a></div>
-        <div><a>twitter</a></div>
+        <div><a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">github</a></div>
+        <div><a href="https://twitter.com/merklejerk">support</a></div>
     </div>
 </header>
 <main class="container">
     <slot></slot>
 </main>
+<footer>
+    <div>
+        <a class="dfly" href="https://dragonfly.xyz" target="_blank">&gt;|&lt;</a>
+    </div>
+</footer>
