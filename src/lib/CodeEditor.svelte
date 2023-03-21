@@ -66,12 +66,10 @@
     }
 
     .action {
-        width: fit-content;
         float: right;
         position: absolute;
         right: 3ex;
         bottom: 0em;
-        padding: 0.1em 0.5em;
     }
 
     .hidden {
@@ -93,7 +91,7 @@
 <div class="component">
     <textarea class="content" readonly={readOnly} bind:value={contents}></textarea>
     <div class="cover">
-        <button class="action" on:click={act} disabled={busy}>
+        <button class="action pixel-button" on:click={act} disabled={busy}>
             {error ? 'Got it' : actionText}
         </button>
         <textarea class="error" class:hidden={!error} readonly bind:value={error}></textarea>

@@ -8,7 +8,9 @@
     import { compile } from '$lib/compile';
     import { solcCompile } from '$lib/worker-compiler';
     import { scoreSimResults } from '$lib/scoring';
-    import { submitScore } from '$lib/submit-score';
+    import { getScores, submitScore } from '$lib/backend';
+    import type { Score } from '$lib/types';
+    import { onMount } from 'svelte';
 
     enum SolveStep {
         None = 'Solve',
@@ -16,12 +18,12 @@
         Simulating = 'Executing (2/2)...',
     }
 
-    export let data;
+    let hiScores: Score[] | null = null;
     let account: Account;
     let solveStep: SolveStep = SolveStep.None;
     let solutionError: string | null = null;
     let simResultsWithScore: SimResultsWithScore | null = null;
-    let isSubmittingScore: boolean;
+    let submitPromise: Promise<any> | null = null;
     let solutionCode = solutionStubCode;
 
     function copyChallenge({detail: contents}) {
@@ -55,11 +57,29 @@
         if (detail.score <= 0) {
             return;
         }
-        isSubmittingScore = true;
-        submitScore(detail.name, detail.score, 600, solutionCode)
-            .catch(err => console.error(err))
-            .then(isSubmittingScore = false);
+        if (submitPromise) {
+            throw new Error('Alreadying submitting!');
+        }
+        submitPromise = submitScore(detail.name, detail.score, 600, solutionCode)
+            .then(() => { refreshScores(); })
+            .finally(() => submitPromise = null );
     }
+
+    async function refreshScores(): Promise<void> {
+        hiScores = await getScores(16);
+    }
+
+    onMount(async () => {
+        const pollScores = async () => {
+            try {
+                await refreshScores();
+            } catch (err) {
+                console.error(err);
+            }
+            setTimeout(pollScores, 60 * 10 * 1000);
+        }
+        pollScores();
+    });
     
 </script>
 
@@ -107,11 +127,12 @@
             <PuzzleRendering
                 simResultsWithScore={simResultsWithScore}
                 on:submitScore={onSubmitScore}
+                submitPromise={submitPromise}
             />
         </div>
     </div>
     <div class="hi-scores">
-        <HiScoreDisplay hiScores={data.hiScores} scrollSpeed={2000} scrollPause={2500}></HiScoreDisplay>
+        <HiScoreDisplay hiScores={hiScores || []} message={hiScores ? null : 'Loading...'} scrollSpeed={2000} scrollPause={2500}></HiScoreDisplay>
     </div>
     <div class="challenge">
         <CodeEditor readOnly contents={challengeCode} on:action={copyChallenge} actionText={'Copy'}></CodeEditor>

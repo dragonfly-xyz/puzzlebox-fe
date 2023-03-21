@@ -1,17 +1,11 @@
-<script lang="ts" context="module">
-    export interface HiScore {
-        name: string;
-        score: number;
-    }
-</script>
-
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
+    import type { Score } from './types';
 
-
-    export let hiScores: HiScore[] = [];
-    let sortedHiScores: HiScore[];
-    $: sortedHiScores = hiScores.sort((a: HiScore, b: HiScore) => b.score - a.score);
+    export let hiScores: Score[] = [];
+    export let message: string | null = null;
+    let sortedHiScores: Score[];
+    $: sortedHiScores = hiScores.sort((a: Score, b: Score) => b.score - a.score);
     
     function formatScore(score: number) {
         return score.toLocaleString('en', {useGrouping: true});
@@ -110,6 +104,10 @@
         text-decoration: none;
     }
 
+    .message {
+        text-align: center;
+    }
+
     @keyframes blink {
         0% { opacity: 100% };
         50% { opacity: 15%; }
@@ -120,6 +118,9 @@
 <div class="component">
     <div class="header">HI SCORES</div>
     <div class="clip" bind:this={scoresElem}>
+        {#if message}
+        <div class="message">{ message }</div>
+        {:else}
         <div>
             {#each sortedHiScores.slice(0,10) as hs, idx}
                 <div class="entry">
@@ -128,11 +129,12 @@
                     <div>{ formatScore(hs.score) }</div>
                 </div>
             {/each}
-            {#if sortedHiScores.length > 10}
+            {#if sortedHiScores.length > 16}
             <div class="more">
                 <a href="/hi-scores" target="_blank">...more &gt;&gt;</a>
             </div>
             {/if}
         </div>
+        {/if}
     </div>
 </div>

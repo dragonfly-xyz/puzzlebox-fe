@@ -1,4 +1,4 @@
-import { PUBLIC_SUBMIT_SCORE_ENDPOINT } from '$env/static/public';
+import { PUBLIC_SUBMIT_SCORE_ENDPOINT, PUBLIC_GET_SCORES_ENDPOINT } from '$env/static/public';
 import {
     type WalletClient,
     createWalletClient,
@@ -6,19 +6,29 @@ import {
     getAccount,
     type Account,
 } from 'viem';
+import type { Score } from './types';
 
-const DOMAIN = {
+const EIP712DOMAIN = {
     name: 'PuzzleBoxCtf',
     version: '1.0',
 } as const
 
-const TYPES = {
+const EIP712_SCORE_TYPE = {
     SignedScore: [
         { name: 'name', type: 'string' },
         { name: 'score', type: 'uint256' },
         { name: 'expiry', type: 'uint256' },
     ],
 } as const;
+
+
+export async function getScores(count: number): Promise<Score[]> {
+    const r = await fetch(PUBLIC_GET_SCORES_ENDPOINT);
+    if (!r.ok) {
+        throw new Error(`submit request failed: <${r.status}> "${await r.text()}"`);
+    }
+    return JSON.parse(await r.text());
+}
 
 async function signScore(
     name: string,
@@ -33,8 +43,8 @@ async function signScore(
     const account: Account = getAccount(address);
     return await wallet.signTypedData({
         account,
-        domain: DOMAIN,
-        types: TYPES,
+        domain: EIP712DOMAIN,
+        types: EIP712_SCORE_TYPE,
         primaryType: 'SignedScore',
         message: {
             name,

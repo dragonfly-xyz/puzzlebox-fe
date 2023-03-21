@@ -17,16 +17,86 @@ export interface SimResultsWithScore {
     const dispatch = createEventDispatcher();
 
     export let simResultsWithScore: SimResultsWithScore | null = null;
+    export let submitName: string = '';
+    export let submitPromise: Promise<any> | null = null;
+
     let scene : Scene;
     let camera: Camera;
+    let isPrompting = false;
 
-    $: dispatch('submitScore', { name: 'moo', score: simResultsWithScore?.score });
+    $: {
+        // TODO: wait till after animation
+        if ((simResultsWithScore?.score || 0) > 0) {
+            isPrompting = true;
+        }
+    }
+    $: {
+        if (submitPromise) {
+            submitPromise.then(() => isPrompting = false);
+        }
+    }
 
+    function submitScore(): void {
+        if (simResultsWithScore) {
+            dispatch('submitScore', {name: submitName, score: simResultsWithScore.score });
+        }
+    }
+
+    function formatScore(score: number) {
+        return score.toLocaleString('en', {useGrouping: true});
+    }
 </script>
 
 <style lang="scss">
+    @import "./common.scss";
+
     .component {
         height: 100%;
+        position: relative;
+    }
+    .cover {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        pointer-events: none;
+        display: none;
+    }
+    .cover.active {
+        pointer-events: all;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .cover .box {
+        @extend .pixel-corners;
+        animation: popup 0.25s 1 cubic-bezier(.47,1.64,.41,.8);
+        background-color: #333;
+        border: 4px solid #777;
+        padding: 0.75em 2ex;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5em;
+        text-align: center;
+    }
+    .box button {
+        align-self: center;
+        margin-bottom: 0;
+    }
+    .box .score {
+        font-family: 'Silkscreen', monospace;
+        font-weight: bold;
+    }
+    .box input {
+        font-family: 'Silkscreen', monospace;
+        @extend .pixel-corners;
+        text-align: center;
+        margin-bottom: 0;
+    }
+    @keyframes popup {
+        from { transform: scale(0.01); }
+        to { }
     }
 </style>
 
@@ -44,4 +114,27 @@ export interface SimResultsWithScore {
             {/if}
         </T.Scene>
     </Canvas>
+    <div class="cover" class:active={isPrompting} on:click|stopPropagation={() => {isPrompting = false}}>
+        <div class="box" class:busy={submitPromise} on:click|stopPropagation>
+            <div>
+                Your score: <span class="score">{ formatScore(simResultsWithScore?.score || 0) }</span>
+            </div>
+            <div>
+                <input
+                    type="text"
+                    placeholder="whats_your_name"
+                    maxlength="24"
+                    bind:value={submitName}
+                    disabled={submitPromise}
+                />
+            </div>
+            <button
+                class="pixel-button"
+                aria-busy={!!submitPromise}
+                disabled={!submitName || !!submitPromise}
+                on:click|preventDefault={submitScore}>
+                    Submit
+                </button>
+        </div>
+    </div>
 </div>

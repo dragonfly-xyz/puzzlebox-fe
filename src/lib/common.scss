@@ -15,3 +15,8 @@
     );
 }
 
+.pixel-button {
+    @extend .pixel-corners;
+    width: fit-content;
+    padding: 0.1em 0.5em;
+}
