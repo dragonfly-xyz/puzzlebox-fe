@@ -8,7 +8,6 @@ onmessage = (async ({ data }) => {
             self.Module.cwrap('solidity_compile', 'string', ['string', 'number']);
     }
     const output = JSON.parse(compileByVersion[data.soljson](JSON.stringify(input)));
-    console.log(jobId, input, output);
     postMessage({
         jobId,
         output

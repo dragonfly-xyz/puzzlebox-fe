@@ -1,13 +1,16 @@
-<script lang="ts">
-    import { onDestroy, onMount } from "svelte";
-
-
+<script lang="ts" context="module">
     export interface HiScore {
         name: string;
         score: number;
     }
+</script>
+
+<script lang="ts">
+    import { onDestroy, onMount } from "svelte";
+
 
     export let hiScores: HiScore[] = [];
+    let sortedHiScores: HiScore[];
     $: sortedHiScores = hiScores.sort((a: HiScore, b: HiScore) => b.score - a.score);
     
     function formatScore(score: number) {

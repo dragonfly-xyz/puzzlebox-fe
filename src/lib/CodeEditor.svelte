@@ -1,56 +1,22 @@
 <script lang="ts">
-    import { compile, simulate } from "$lib/puzzle";
-    import { createEventDispatcher, onMount } from "svelte";
-    import { readonly } from "svelte/store";
+    import { createEventDispatcher, onMount } from 'svelte';
 
-    enum BusyStep {
-        None = '',
-        Compiling = 'Compiling (1/2)...',
-        Simulating = 'Executing (2/2)...',
-    }
+    const dispatch = createEventDispatcher();
 
     export let readOnly = false;
     export let error: string | null = null;
     export let contents: string = '';
-    let busyStep: BusyStep = BusyStep.None;
-    let actionText: string = '';
-    $: actionText = (() => {
-        if (error) {
-            return 'Got it';
-        } else if (busyStep != BusyStep.None) {
-            return busyStep;
-        }
-        return readOnly ? 'Copy' : 'Solve';
-    })();
-
-    const dispatch = createEventDispatcher();
-
-    function copy() {
-        navigator.clipboard.writeText(contents);
-    }
+    export let actionText: string = '';
+    export let busy: boolean = false;
 
     function act() {
         if (error) {
             error = null;
             return;
         }
-        (async () => {
-            busyStep = BusyStep.Compiling;
-            const artifacts = await compile(contents);
-            console.log(artifacts);
-            busyStep = BusyStep.Simulating;
-            const simResults = await simulate(artifacts);
-            if (simResults.error) {
-                throw new Error(`Solution reverted with "${simResults.error}"`);
-            }
-        })().then(() => {
-            error = null;
-        }).catch((err) => {
-            error = err.toString();
-        }).then(() => {
-            busyStep = BusyStep.None;
-        });
+        dispatch('action', contents);
     }
+
 </script>
 
 <style lang="scss">
@@ -127,8 +93,8 @@
 <div class="component">
     <textarea class="content" readonly={readOnly} bind:value={contents}></textarea>
     <div class="cover">
-        <button class="action" on:click={readOnly ? copy : act} disabled={busyStep != BusyStep.None}>
-            {actionText}
+        <button class="action" on:click={act} disabled={busy}>
+            {error ? 'Got it' : actionText}
         </button>
         <textarea class="error" class:hidden={!error} readonly bind:value={error}></textarea>
     </div>

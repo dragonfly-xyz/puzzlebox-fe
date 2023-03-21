@@ -1,13 +1,27 @@
+<script lang="ts" context="module">
+export interface SimResultsWithScore {
+        simResults: SimResults;
+        score: number;
+    }
+</script>
+
 <script lang="ts">
     import { Canvas, OrbitControls, Pass, T, useThrelte } from '@threlte/core';
-    import { AmbientLight, Group, OrthographicCamera } from 'three';
+    import type { Camera, Scene } from 'three';
     import { GLTF } from '@threlte/extras';
     import { damp, degToRad } from 'three/src/math/MathUtils';
-    import { onMount } from 'svelte';
+    import { createEventDispatcher, onMount } from 'svelte';
     import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass';
+    import type { SimResults } from './simulate';
 
-    let scene;
-    let camera;
+    const dispatch = createEventDispatcher();
+
+    export let simResultsWithScore: SimResultsWithScore | null = null;
+    let scene : Scene;
+    let camera: Camera;
+
+    $: dispatch('submitScore', { name: 'moo', score: simResultsWithScore?.score });
+
 </script>
 
 <style lang="scss">
@@ -24,7 +38,7 @@
                 <OrbitControls maxPolarAngle={degToRad(60)} enableZoom={false} target={{x: 0, y: 1.5, z: 0}} />
                 <T.DirectionalLight position={[10, 8, 2]} intensity={1} />
             </T.OrthographicCamera>
-            <GLTF url="/puzzlebox.glb" position={[0,10,0]} rotation={{x: 0, y: degToRad(45), z: 0}} />
+            <GLTF url="/puzzlebox.glb" rotation={{x: 0, y: degToRad(45), z: 0}} />
             {#if scene}
                 <Pass pass={new RenderPixelatedPass(3.5, scene, camera, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
             {/if}
