@@ -6,13 +6,15 @@ export interface SimResultsWithScore {
 </script>
 
 <script lang="ts">
-    import { Canvas, OrbitControls, Pass, T, useThrelte } from '@threlte/core';
+    import { Canvas, OrbitControls, Pass, T } from '@threlte/core';
     import type { Camera, Scene } from 'three';
     import { GLTF } from '@threlte/extras';
-    import { damp, degToRad } from 'three/src/math/MathUtils';
+    import { degToRad } from 'three/src/math/MathUtils';
     import { createEventDispatcher, onMount } from 'svelte';
     import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass';
-    import type { SimResults } from './simulate';
+    import type { DecodedEvent, SimResults } from './simulate';
+
+    class AnimationAbortedError extends Error {}
 
     const dispatch = createEventDispatcher();
 
@@ -23,16 +25,51 @@ export interface SimResultsWithScore {
     let scene : Scene;
     let camera: Camera;
     let isPrompting = false;
+    let solveAnimation: Promise<void> | null = null;
 
-    $: {
-        // TODO: wait till after animation
-        if ((simResultsWithScore?.score || 0) > 0) {
-            isPrompting = true;
+    $: (async () => {
+        const oldAnimation = solveAnimation;
+        try {
+            if (oldAnimation) {
+                await oldAnimation;
+            }
+        } catch (err) {
+            if (!(err instanceof AnimationAbortedError)) {
+                console.error(err);
+            }
+        } finally {
+            if (solveAnimation !== oldAnimation ||
+                !simResultsWithScore ||
+                simResultsWithScore.simResults.error
+            ) {
+                return;
+            }
         }
-    }
+        const p = solveAnimation = animateSolution(simResultsWithScore!.simResults.puzzleEvents);
+        await solveAnimation;
+        if (p === solveAnimation) {
+            solveAnimation = null;
+            if (simResultsWithScore!.score > 0) {
+                isPrompting = true;
+            }
+        }
+    })();
     $: {
         if (submitPromise) {
             submitPromise.then(() => isPrompting = false);
+        }
+    }
+
+    async function animateSolution(events: DecodedEvent[]): Promise<void> {
+        await runAbortableSequence([
+
+        ]);
+        await resetCamera();
+        await 
+        if (events.length === 0) {
+            // No progress.
+            
+            return;
         }
     }
 
@@ -125,7 +162,7 @@ export interface SimResultsWithScore {
                     placeholder="whats_your_name"
                     maxlength="24"
                     bind:value={submitName}
-                    disabled={submitPromise}
+                    disabled={!!submitPromise}
                 />
             </div>
             <button

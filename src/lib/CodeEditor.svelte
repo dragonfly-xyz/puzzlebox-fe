@@ -46,10 +46,6 @@
         background-color: #bbbbdd;
     }
 
-    .content[contenteditable]:focus {
-        outline: 0px solid transparent;
-    }
-
     .cover {
         position: absolute;
         left: 0;
@@ -91,7 +87,7 @@
 <div class="component">
     <textarea class="content" readonly={readOnly} bind:value={contents}></textarea>
     <div class="cover">
-        <button class="action pixel-button" on:click={act} disabled={busy}>
+        <button class="action pixel-button" on:click={act} disabled={busy} aria-busy={busy}>
             {error ? 'Got it' : actionText}
         </button>
         <textarea class="error" class:hidden={!error} readonly bind:value={error}></textarea>
