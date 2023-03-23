@@ -7,26 +7,19 @@ export interface SimResultsWithScore {
 
 <script lang="ts">
     import { dev } from '$app/environment';
-    import { Canvas, Pass, T, type ThrelteContext, OrbitControls } from '@threlte/core';
-    import { Matrix4, Quaternion, type OrthographicCamera, type Scene, Vector3, Camera } from 'three';
+    import { Canvas, Pass, T, OrbitControls } from '@threlte/core';
+    import { type Scene, AnimationClip, Group } from 'three';
     import { GLTF } from '@threlte/extras';
     import { degToRad } from 'three/src/math/MathUtils';
     import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass';
     import type { OrbitControls as OrbitControlsType } from 'three/examples/jsm/controls/OrbitControls';
     import { createEventDispatcher } from 'svelte';
     import type { DecodedEvent, SimResults } from './simulate';
-    import { AnimationAbortedError, Sequencer, type SequenceHandler } from './sequencer';
+    import { Sequencer } from './sequencer';
+    import _ from 'underscore';
+    import { Animator } from './animator';
 
     const dispatch = createEventDispatcher();
-
-    class BrowserSequencer extends Sequencer {
-        public update() {
-            super.update();
-            if (this.isPlaying) {
-                requestAnimationFrame(() => this.update());
-            }
-        }
-    }
 
     export let simResultsWithScore: SimResultsWithScore | null = null;
     export let submitName: string = '';
@@ -35,29 +28,38 @@ export interface SimResultsWithScore {
     let scene : Scene;
     let cameraControl: OrbitControlsType;
     let isPrompting = false;
-    let sequencer = new BrowserSequencer();
-    let threlteCtx: ThrelteContext | undefined;
+    let sequencer = new Sequencer();
+    let puzzleBox: Group | undefined;
+    let animations: AnimationClip[] | undefined; 
+    let animator: Animator | undefined;
 
     $: (async () => {
         isPrompting = false;
-        if (!simResultsWithScore || simResultsWithScore.simResults.error) {
+        if (!simResultsWithScore || simResultsWithScore.simResults.error || !animator) {
             return;   
         }
         const { simResults } = simResultsWithScore;
         if (simResults.puzzleEvents.length === 0) {
             sequencer.play([
-                animateCamera([0.6, -0.53, -0.6]),
-                rattleBox(),
+                animator.animateReset(),
+                animator.animateCamera([0.6, -0.53, -0.6]),
+                animator.animateRattleBox(),
             ]);
         } else {
-            await sequencer.play([
-                animateCamera([0.29, -0.86, -0.43]),
-                // animateChallenge(0),
-                animateCamera([0.78, -0.43, 0.45])
-            ]);
-            if (simResultsWithScore.score > 0) {
-                isPrompting = true;
+            const seq = [animator.animateReset()];
+            for (const e of simResults.puzzleEvents) {
+                if (e.eventName === 'Operate') {
+                    seq.push(
+                        animator.animateCamera([0.19, -0.91, -0.38]),
+                        animator.animateOperateChallenge(),
+                    );
+                }
             }
+            await sequencer.play(seq);
+            console.log('complete');
+            // if (simResultsWithScore.score > 0) {
+            //     isPrompting = true;
+            // }
         }
     })();
 
@@ -68,45 +70,28 @@ export interface SimResultsWithScore {
     }
 
     $: {
-        if (dev && cameraControl) {
-            cameraControl.addEventListener('change', () => {
-                console.log(`Camera ray:`,
-                    cameraControl.target.clone().sub(cameraControl.object.position)
-                        .normalize()
-                        .toArray()
-                        .join(','),
-                );
+        if (scene && animations && puzzleBox) {
+            animator = new Animator({
+                scene,
+                cameraControl,
+                clips: animations,
+                puzzleBox,
             });
+            const render = () => {
+                const dt = sequencer.update();
+                animator!.update(dt);
+                requestAnimationFrame(render);
+            }
+            render();
         }
     }
 
-    function animateCamera(endLookDir_: [number, number, number], duration: number = 0.5e3): SequenceHandler {
-        const camera = cameraControl.object;
-        const origin = cameraControl.target.clone();
-        const dist = cameraControl.getDistance();
-        const endLookDir = new Vector3(...endLookDir_).normalize();
-        return {
-            update({ runningTime }): boolean {
-                const toOrigin = origin.clone().sub(camera.position);
-                const lookDir = toOrigin.clone().divideScalar(dist);
-                const t = runningTime == 0 ? 0 : Math.min(1, runningTime / duration);
-                const r = new Quaternion().slerp(
-                    new Quaternion().setFromUnitVectors(lookDir, endLookDir),
-                    t,
-                );
-                const newLookDir = lookDir.clone().applyQuaternion(r);
-                const newToOrigin = newLookDir.clone().multiplyScalar(dist);
-                camera.applyMatrix4(
-                    new Matrix4().makeTranslation(...(toOrigin.clone().sub(newToOrigin).toArray()))
-                );
-                cameraControl.update();
-                return duration <= runningTime;
-            },
-        };
-    }
-
-    function rattleBox(): SequenceHandler {
-        return {};
+    $: {
+        if (dev && cameraControl) {
+            cameraControl.addEventListener('change', () => {
+                logCameraRay();
+            });
+        }
     }
 
     function submitScore(): void {
@@ -118,6 +103,17 @@ export interface SimResultsWithScore {
     function formatScore(score: number) {
         return score.toLocaleString('en', {useGrouping: true});
     }
+
+    const logCameraRay = _.debounce(() => {
+        console.log(`Camera ray:`,
+            '<' + cameraControl.target.clone().sub(cameraControl.object.position)
+                .normalize()
+                .toArray()
+                .map(v => v.toPrecision(2))
+                .join(',') + '>',
+        );
+    }, 500);
+
 </script>
 
 <style lang="scss">
@@ -174,7 +170,7 @@ export interface SimResultsWithScore {
 </style>
 
 <div class="component">
-    <Canvas bind:ctx={threlteCtx}>
+    <Canvas>
         <T.Scene bind:ref={scene}>
             <T.AmbientLight intensity={0.75} />
             <T.OrthographicCamera
@@ -194,7 +190,7 @@ export interface SimResultsWithScore {
                     enabled={!sequencer.isPlaying} />
                 <T.DirectionalLight position={[10, 8, 2]} intensity={1} />
             </T.OrthographicCamera>
-            <GLTF url="/puzzlebox.glb" />
+            <GLTF url="/puzzlebox.glb" bind:animations={animations} bind:scene={puzzleBox}/>
             {#if scene && cameraControl}
                 <Pass pass={new RenderPixelatedPass(3.5, scene, cameraControl.object, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
             {/if}

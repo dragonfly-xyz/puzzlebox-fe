@@ -26,8 +26,8 @@ export class Sequencer {
     private _currentSequence: SequenceStep[] | null = null;
     private _isPaused: boolean = false;
 
-    public update(): void {
-        let dt = Date.now();
+    public update(): number {
+        let dt = Date.now() / 1e3;
         if (this._lastUpdateTime == 0) {
             this._lastUpdateTime = dt;
             dt = 0;
@@ -36,7 +36,7 @@ export class Sequencer {
             this._lastUpdateTime += dt;
         }
         if (this._isPaused) {
-            return;
+            return 0;
         }
         const step = this._currentStep;
         if (step) {
@@ -62,6 +62,7 @@ export class Sequencer {
         if (!this._currentStep) {
             this._stop(true);
         }
+        return dt;
     }
 
     public pause(): void {
@@ -80,7 +81,6 @@ export class Sequencer {
         const step = this._currentStep;
         const onComplete = this._currentSequenceOnComplete;
         const onAbort = this._currentSequenceOnAbort;
-        this._lastUpdateTime = 0;
         this._currentStepIdx = 0;
         this._currentSequence = null;
         this._currentSequenceOnComplete = null;
@@ -108,7 +108,7 @@ export class Sequencer {
         this.stop();
         const p = new Promise<void>((accept, reject) => {
             this._currentSequenceOnComplete = () => accept();
-            this._currentSequenceOnAbort = () => reject(new Error('aborted'));
+            this._currentSequenceOnAbort = () => reject(new AnimationAbortedError());
         });
         this._currentSequence = items.map(h => ({
             handler: h,

@@ -26,9 +26,11 @@
 		"@threlte/extras": "^4.9.3",
 		"@threlte/preprocess": "^0.0.2",
 		"@types/three": "^0.149.0",
+		"@types/underscore": "^1.11.4",
 		"ganache": "^7.7.7",
 		"solc": "^0.8.19",
 		"svelte-sequential-preprocessor": "^1.0.0",
+		"underscore": "^1.13.6",
 		"viem": "^0.1.21"
 	}
 }
