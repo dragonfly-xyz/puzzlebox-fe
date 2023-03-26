@@ -19,22 +19,14 @@ export class AnimationAbortedError extends Error {
 }
 
 export class Sequencer {
-    private _lastUpdateTime: number = 0;
     private _currentStepIdx: number = 0;
     private _currentSequenceOnComplete: (() => void) | null = null;
-    private _currentSequenceOnAbort: ((e: Error) => void) | null = null;
+    private _currentSequenceOnAbort: (() => void) | null = null;
     private _currentSequence: SequenceStep[] | null = null;
     private _isPaused: boolean = false;
+    public loop: boolean = false;
 
-    public update(): number {
-        let dt = Date.now() / 1e3;
-        if (this._lastUpdateTime == 0) {
-            this._lastUpdateTime = dt;
-            dt = 0;
-        } else {
-            dt -= this._lastUpdateTime;
-            this._lastUpdateTime += dt;
-        }
+    public update(dt: number): number {
         if (this._isPaused) {
             return 0;
         }
@@ -60,7 +52,11 @@ export class Sequencer {
             }
         }
         if (!this._currentStep) {
-            this._stop(true);
+            if (!this.loop) {
+                this._stop(true);
+            } else {
+                this.reset();
+            }
         }
         return dt;
     }
@@ -74,7 +70,15 @@ export class Sequencer {
     }
     
     public stop(): void {
-        this._stop(false);
+        this._stop(true);
+    }
+
+    public reset(): void {
+        this._currentStepIdx = 0;
+        for (const step of this._currentSequence || []) {
+            step.started = false;
+            step.runningTime = 0;
+        }
     }
 
     private _stop(completed: boolean): void {
@@ -99,13 +103,13 @@ export class Sequencer {
             }
         } else {
             if (onAbort) {
-                onAbort(new AnimationAbortedError());
+                onAbort();
             }
         }
     }
 
     public play(items: SequenceHandler[]): Promise<void> {
-        this.stop();
+        this._stop(false);
         const p = new Promise<void>((accept, reject) => {
             this._currentSequenceOnComplete = () => accept();
             this._currentSequenceOnAbort = () => reject(new AnimationAbortedError());
@@ -115,7 +119,7 @@ export class Sequencer {
             started: false,
             runningTime: 0,
         }));
-        this.update();
+        this.update(0);
         return p;
     }
 

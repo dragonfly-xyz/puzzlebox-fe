@@ -6,12 +6,13 @@ interface EventRule {
     verify?: (args: any) => boolean;
 }
 
+export const TORCH_SELECTOR = '0x925facb1';
 const BASE_SCORE = 1337;
 const GAS_REFERENCE = 1577658;
 const TRUE_FN = (..._args: any) => true;
 const BREAKPOINT_RULES: { [event: string]: EventRule } = {
     'Operate': { weight: 0.4982, maxCount: 1 },
-    'Lock': { weight: 0.75,  maxCount: 1, verify: (args: any) => args.selector === '0x925facb1' },
+    'Lock': { weight: 0.75,  maxCount: 1, verify: (args: any) => args.selector === TORCH_SELECTOR && !args.isLocked },
     'Drip': { weight: 1.0 / 10, maxCount: 10 },
     'Torch': { weight: 1.25, maxCount: 1, verify: (args: any) => args.dripIds.length === 6 },
     'Zip': { weight: 1.25, maxCount: 1 },

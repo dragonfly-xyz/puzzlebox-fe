@@ -1,4 +1,4 @@
-import type { SequenceHandler } from './sequencer';
+import { Sequencer, type SequenceHandler } from './sequencer';
 import { AnimationClip, AnimationMixer, Group, Material, Matrix4, Mesh, Quaternion, Scene, Vector3, Object3D, MeshPhysicalMaterial, Color } from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
@@ -29,6 +29,8 @@ function getMeshMaterial<T extends Material>(mesh: Mesh): T {
 }
 
 export class Animator {
+    private _lastUpdateTime: number = 0;
+    private readonly _sequencerByName: { [name: string]: Sequencer } = {};
     private readonly _cameraControl: OrbitControls;
     private readonly _mixer: AnimationMixer;
     private readonly _clipsByName: { [name: string]: AnimationClip };
@@ -63,8 +65,26 @@ export class Animator {
         return this._origCache[name] as T;
     }
 
-    public update(dt: number): void {
+    public getSequencer(name: string): Sequencer {
+        if (!(this._sequencerByName[name])) {
+            this._sequencerByName[name] = new Sequencer();
+        }
+        return this._sequencerByName[name];
+    }
+
+    public update(): void {
+        let dt = Date.now() / 1e3;
+        if (this._lastUpdateTime == 0) {
+            this._lastUpdateTime = dt;
+            dt = 0;
+        } else {
+            dt -= this._lastUpdateTime;
+            this._lastUpdateTime += dt;
+        }
         this._mixer.update(dt);
+        for (const k in this._sequencerByName) {
+            this._sequencerByName[k].update(dt);
+        }
     }
 
     public animateReset(): SequenceHandler {
@@ -75,6 +95,14 @@ export class Animator {
                 return true;
             }
         };
+    }
+
+    public animateWait(seconds: number): SequenceHandler {
+        return {
+            update({ runningTime }) {
+                return runningTime >= seconds;
+            }
+        }
     }
 
     public animateCamera(
@@ -89,6 +117,9 @@ export class Animator {
             update: ({ runningTime }) => {
                 const toOrigin = origin.clone().sub(camera.position);
                 const lookDir = toOrigin.clone().divideScalar(dist);
+                if (1 - Math.abs(lookDir.dot(endLookDir)) < 1e-7) {
+                    return true;
+                }
                 const t = runningTime == 0 ? 0 : Math.min(1, runningTime / duration);
                 const r = new Quaternion().slerp(
                     new Quaternion().setFromUnitVectors(lookDir, endLookDir),

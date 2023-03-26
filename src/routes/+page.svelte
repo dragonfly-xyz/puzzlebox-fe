@@ -25,12 +25,13 @@
     let simResultsWithScore: SimResultsWithScore | null = null;
     let submitPromise: Promise<any> | null = null;
     let solutionCode = solutionStubCode;
+    let puzzleRenderingEl: HTMLElement | undefined;
 
-    function copyChallenge({detail: contents}) {
+    function copyChallenge({detail: contents}: CustomEvent<string>) {
         navigator.clipboard.writeText(contents);
     }
 
-    function onSolve({detail: contents}) {
+    function onSolve({detail: contents}: CustomEvent<string>) {
         (async () => {
             solveStep = SolveStep.Compiling;
             const artifacts = await compile(contents, solcCompile);
@@ -53,6 +54,10 @@
         });
     }
 
+    function onSolutionAnimating(e: CustomEvent<any>) {
+        puzzleRenderingEl.scrollIntoView({ behavior: 'smooth' });
+    }
+
     function onSubmitScore({ detail }: { detail: { name: string, score: number } } ) {
         if (detail.score <= 0) {
             return;
@@ -71,12 +76,14 @@
 
     onMount(async () => {
         const pollScores = async () => {
+            let nextPollDelay = 60 * 10 * 1000;
             try {
                 await refreshScores();
             } catch (err) {
                 console.error(err);
+                nextPollDelay = 5000;
             }
-            setTimeout(pollScores, 60 * 10 * 1000);
+            setTimeout(pollScores, nextPollDelay);
         }
         pollScores();
     });
@@ -125,8 +132,10 @@
     <div class="rendering-container">
         <div class="rendering">
             <PuzzleRendering
+                bind:el={puzzleRenderingEl}
                 simResultsWithScore={simResultsWithScore}
                 on:submitScore={onSubmitScore}
+                on:animating={onSolutionAnimating}
                 submitPromise={submitPromise}
             />
         </div>
