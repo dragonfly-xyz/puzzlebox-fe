@@ -22,6 +22,7 @@ export interface SimResultsWithScore {
     import { sequence } from '@sveltejs/kit/hooks';
 
     const dispatch = createEventDispatcher();
+    const DEFAULT_VIEW_ANGLE = [-0.60, -0.53, -0.6] as [number, number, number];
 
     export let el: HTMLElement | undefined;
     export let simResultsWithScore: SimResultsWithScore | null = null;
@@ -51,7 +52,7 @@ export interface SimResultsWithScore {
         if (simResults.puzzleEvents.length === 0) {
             mainSequencer.play([
                 animator.animateReset(),
-                animator.animateCamera([0.6, -0.53, -0.6]),
+                animator.animateCamera(DEFAULT_VIEW_ANGLE),
                 animator.animateRattleBox(),
             ]);
         } else {
@@ -62,8 +63,9 @@ export interface SimResultsWithScore {
                 const nextEventName = simResults.puzzleEvents[i + 1]?.eventName;
                 if (eventName === 'Operate') {
                     seq.push(
-                        animator.animateCamera([0.19, -0.91, -0.38]),
+                        animator.animateCamera(DEFAULT_VIEW_ANGLE),
                         animator.animateOperateChallenge(),
+                        animator.animateCamera([0.44, -0.76, -0.48]),
                     );
                 } else if (eventName === 'Lock') {
                     if (e.args.selector === TORCH_SELECTOR && !e.args.isLocked) {
@@ -104,7 +106,7 @@ export interface SimResultsWithScore {
                     );
                 } else if (eventName === 'Open') {
                     seq.push(
-                        animator.animateCamera([0.6, -0.53, -0.6]),
+                        animator.animateCamera(DEFAULT_VIEW_ANGLE),
                         // animator.animateOpenChallenge(),
                     );
                 }
@@ -113,6 +115,10 @@ export interface SimResultsWithScore {
                 }
                 lastEventName = eventName;
             }
+            seq.push(
+                animator.animateCamera(DEFAULT_VIEW_ANGLE),
+                animator.animateWait(1),
+            );
             await mainSequencer.play(seq);
             console.log('complete');
             if (simResultsWithScore.score > 0) {
@@ -234,7 +240,7 @@ export interface SimResultsWithScore {
             <T.AmbientLight intensity={0.75} />
             <T.OrthographicCamera
                 makeDefault
-                position={[-2,3,2]}
+                position={[2,3,2]}
                 near={0.1}
                 far={20}
                 zoom={60}
@@ -251,7 +257,7 @@ export interface SimResultsWithScore {
             </T.OrthographicCamera>
             <GLTF url="/puzzlebox.glb" bind:animations={animations} bind:scene={puzzleBox} bind:materials={materials} />
             {#if scene && cameraControl}
-                <Pass pass={new RenderPixelatedPass(3, scene, cameraControl.object, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
+                <Pass pass={new RenderPixelatedPass(2.5, scene, cameraControl.object, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
             {/if}
         </T.Scene>
     </Canvas>

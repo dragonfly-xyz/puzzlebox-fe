@@ -1,6 +1,7 @@
 import { Sequencer, type SequenceHandler } from './sequencer';
-import { AnimationClip, AnimationMixer, Group, Material, Matrix4, Mesh, Quaternion, Scene, Vector3, Object3D, MeshPhysicalMaterial, Color } from 'three';
+import { AnimationClip, AnimationMixer, Group, Material, Matrix4, Mesh, Quaternion, Scene, Vector3, Object3D, MeshPhysicalMaterial, Color, Plane } from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { clamp, lerp } from 'three/src/math/MathUtils';
 
 interface AnimatorOpts {
     scene: Scene;
@@ -10,15 +11,28 @@ interface AnimatorOpts {
     materials: Record<string, Material>;
 }
 
-const HAND_OBJ_NAME = 'hand-inner';
-const HAND_UNLOCK_COLOR = new Color(0.05, 1.0, 0.05);
+const OPERATE_CELLS = [
+    0, 0, 0, 1, 0, 0, 0,
+    1, 0, 0, 1, 0, 0, 1,
+    0, 1, 0, 1, 0, 1, 0,
+    0, 0, 1, 1, 1, 0, 0,
+    0, 1, 0, 1, 0, 1, 0,
+    1, 0, 0, 1, 0, 0, 1,
+    0, 0, 0, 1, 0, 0, 0,
+];
+
+// const OPERATE_CELLS = [
+//     0, 1, 1, 1, 1, 1, 0,
+//     0, 1, 0, 0, 0, 1, 0,
+//     0, 1, 1, 1, 1, 1, 0,
+//     0, 0, 0, 1, 0, 0, 0,
+//     0, 0, 0, 1, 1, 0, 0,
+//     0, 0, 0, 1, 0, 0, 0,
+//     0, 0, 0, 1, 1, 0, 0,
+// ];
 
 enum OrigCacheItem {
-    HandColor,
-}
-
-function getMeshChild(parent: Object3D, name: string): Mesh {
-    return parent.getObjectByName(name) as Mesh;
+    // HandColor,
 }
 
 function getMeshMaterial<T extends Material>(mesh: Mesh): T {
@@ -54,14 +68,11 @@ export class Animator {
     }
 
     private _getMeshByName(name: string): Mesh {
-        return getMeshChild(this._puzzleBox, name);
+        return this._getObjectByName(name) as Mesh;
     }
 
-    private _getMeshMaterialByMeshName
-        <T extends Material = MeshPhysicalMaterial>
-        (meshName: string): T
-    {
-        return getMeshMaterial<T>(getMeshChild(this._puzzleBox, meshName));
+    private _getObjectByName(name: string): Object3D {
+        return this._puzzleBox.getObjectByName(name) as Object3D;
     }
 
     private _getOrig<T>(name: OrigCacheItem): T {
@@ -91,12 +102,15 @@ export class Animator {
     }
 
     public animateReset(): SequenceHandler {
-        // const mat = this._getMeshMaterialByMeshName(HAND_OBJ_NAME); 
+        const cells = this._getObjectByName('grid-cells').children.map(c => c as Mesh);
+        const inactiveCellMaterial = this._materialsByName['box-basic'];
         return {
-            update: () => {
-                // mat.color = this._getOrig<Color>(OrigCacheItem.HandColor);
-                return true;
-            }
+            enter: () => {
+                for (const cell of cells) {
+                    cell.position.y = 0;
+                    cell.material = inactiveCellMaterial;
+                }
+            },
         };
     }
 
@@ -153,12 +167,54 @@ export class Animator {
     }
     
     public animateOperateChallenge(): SequenceHandler {
-        const mat = this._getMeshMaterialByMeshName(HAND_OBJ_NAME);
+        const cellsRoot = this._getObjectByName('grid-cells');
+        cellsRoot.updateMatrix();
+        const cells = cellsRoot.children.map(c => c as Mesh);
+        const cellsRootInverse = cellsRoot.matrix.clone().invert();
+        const rippleStartObj = this._getObjectByName('grid-ripple-start');
+        rippleStartObj.updateMatrix();
+        const rippleEndObj = this._getObjectByName('grid-ripple-end');
+        rippleEndObj.updateMatrix();
+        const rippleStart = new Vector3().applyMatrix4(
+            cellsRootInverse.clone().multiply(rippleStartObj.matrix)
+        );
+        const rippleEnd = new Vector3().applyMatrix4(
+            cellsRootInverse.clone().multiply(rippleEndObj.matrix)
+        );
+        const inactiveMat = this._materialsByName['box-basic'];
+        const activeMat = this._materialsByName['grid-activated'];
+        const rippleDuration = 1.5;
+        const rippleDir = new Vector3().subVectors(rippleEnd, rippleStart).normalize();
+        const up = new Vector3(0, 1, 0);
+        const rippleSurfacePlane = new Plane().setFromNormalAndCoplanarPoint(
+            new Vector3().crossVectors(rippleDir, up).normalize().cross(rippleDir),
+            rippleStart,
+        );
         return {
-            enter: () => { mat.color = mat.color.clone(); },
             update: ({ runningTime }) => {
-                mat.color.lerp(HAND_UNLOCK_COLOR, Math.min(1, runningTime / 1));
-                return runningTime >= 1;
+                const ripplePos = rippleStart
+                    .clone()
+                    .lerp(rippleEnd, Math.min(1, runningTime / rippleDuration));
+                const ripplePlane = new Plane().setFromNormalAndCoplanarPoint(
+                    rippleDir,
+                    ripplePos,
+                );
+                const p = new Vector3();
+                for (const [i, cell] of cells.entries()) {
+                    const maxY = rippleSurfacePlane.projectPoint(cell.position, p).y;
+                    const d = ripplePlane.distanceToPoint(p);
+                    let y = lerp(0, maxY, clamp(1 - Math.abs(d), 0, 1) ** 2);
+                    if (d <= 0) {
+                        if (OPERATE_CELLS[i]) {
+                            y = Math.max(y, maxY * 0.33);
+                            cell.material = activeMat;
+                        } else {
+                            cell.material = inactiveMat;
+                        }
+                    }
+                    cell.translateY(y - cell.position.y);
+                }
+                return runningTime >= rippleDuration;
             }
         }
     }
