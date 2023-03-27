@@ -79,7 +79,7 @@ export interface SimResultsWithScore {
                         seq.push(animator.animateCamera([0.050, -0.26, -0.96]));
                     }
                     seq.push(
-                        // animator.animateDripChallenge(e.args.dripId),
+                        animator.animateDripChallenge(Number(e.args.dripId)),
                     );
                 } else if (eventName === 'Torch') {
                         seq.push(
@@ -91,7 +91,7 @@ export interface SimResultsWithScore {
                         seq.push(animator.animateCamera([0.050, -0.26, -0.96]));
                     }
                     seq.push(
-                        // animator.animateBurn(e.args.dripId),
+                        animator.animateBurnChallenge(Number(e.args.dripId)),
                     );
                 } else if (eventName === 'Zip') {
                     seq.push(

@@ -1,5 +1,18 @@
 import { Sequencer, type SequenceHandler } from './sequencer';
-import { AnimationClip, AnimationMixer, Group, Material, Matrix4, Mesh, Quaternion, Scene, Vector3, Object3D, MeshPhysicalMaterial, Color, Plane } from 'three';
+import {
+    AnimationClip,
+    AnimationMixer,
+    Group,
+    Material,
+    Matrix4,
+    Mesh,
+    Quaternion,
+    Scene,
+    Vector3,
+    Object3D,
+    Plane,
+    type AnimationAction,
+} from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { clamp, lerp } from 'three/src/math/MathUtils';
 
@@ -62,6 +75,7 @@ export class Animator {
             {},
             ...opts.clips.map(a => ({ [a.name]: a })),
         );
+        console.log(this._clipsByName);
         this._origCache = {
             // [OrigCacheItem.HandColor]: this._getMeshMaterialByMeshName(HAND_OBJ_NAME).color.clone(),
         };
@@ -155,6 +169,7 @@ export class Animator {
     
     public animateRattleBox(): SequenceHandler {
         const clip = this._clipsByName['rattle'];
+        console.log(clip, this._mixer);
         const action = this._mixer!.existingAction(clip) || (() => {
             const a = this._mixer!.clipAction(clip);
             a.setLoop(0, 1);
@@ -217,6 +232,69 @@ export class Animator {
                 return runningTime >= rippleDuration;
             }
         }
+    }
+
+    public animateDripChallenge(dripId: number): SequenceHandler {
+        const clip = this._clipsByName[`drip.00${dripId - 1}`]
+        const action = this._mixer!.existingAction(clip) || (() => {
+            const a = this._mixer!.clipAction(clip);
+            a.setLoop(0, 1);
+            return a;
+        })();
+        action.clampWhenFinished = true;
+        return {
+            enter() { action.stop(); action.play(); },
+            update({runningTime}) { return runningTime >= clip.duration; },
+        };
+    }
+
+    public animateBurnChallenge(dripId: number): SequenceHandler {
+        let burnEffectAction: AnimationAction;
+        {
+            const clip = this._clipsByName['burn-effect'];
+            burnEffectAction = this._mixer!.existingAction(clip) || (() => {
+                const a = this._mixer!.clipAction(clip);
+                a.setLoop(0, 1);
+                return a;
+            })();
+        }
+        let dripTokenAction: AnimationAction;
+        {
+            const clip = this._clipsByName[`drip.00${dripId - 1}`]
+            dripTokenAction = this._mixer!.existingAction(clip) || (() => {
+                const a = this._mixer!.clipAction(clip);
+                a.setLoop(0, 1);
+                return a;
+            })();
+        }
+        let burnTokenAction: AnimationAction;
+        {
+            const clip = this._clipsByName[`burn.00${dripId - 1}`];
+            burnTokenAction = this._mixer!.existingAction(clip) || (() => {
+                const a = this._mixer!.clipAction(clip);
+                a.setLoop(0, 1);
+                return a;
+            })();
+        }
+        let burnTokenActionCompleted = false;
+        return {
+            enter() {
+                dripTokenAction.stop();
+                burnTokenAction.stop();
+                burnTokenAction.play();
+            },
+            update({ runningTime}) {
+                if (runningTime >= burnTokenAction.getClip().duration) {
+                    if (!burnTokenActionCompleted) {
+                        burnTokenActionCompleted = true;
+                        burnEffectAction.stop();
+                        burnEffectAction.play();
+                    }
+                    return !burnEffectAction.isRunning();
+                }
+                return false;
+            },
+        };
     }
 }
 
