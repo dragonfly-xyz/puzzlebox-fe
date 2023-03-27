@@ -7,6 +7,7 @@ interface AnimatorOpts {
     puzzleBox: Group;
     cameraControl: OrbitControls;
     clips: AnimationClip[];
+    materials: Record<string, Material>;
 }
 
 const HAND_OBJ_NAME = 'hand-inner';
@@ -34,6 +35,7 @@ export class Animator {
     private readonly _cameraControl: OrbitControls;
     private readonly _mixer: AnimationMixer;
     private readonly _clipsByName: { [name: string]: AnimationClip };
+    private readonly _materialsByName: { [name: string]: Material };
     private readonly _puzzleBox: Group;
     private readonly _origCache: { [key in OrigCacheItem]: any };
     
@@ -41,12 +43,13 @@ export class Animator {
         this._cameraControl = opts.cameraControl;
         this._mixer = new AnimationMixer(opts.scene);
         this._puzzleBox = opts.puzzleBox;
+        this._materialsByName = opts.materials;
         this._clipsByName = Object.assign(
             {},
             ...opts.clips.map(a => ({ [a.name]: a })),
         );
         this._origCache = {
-            [OrigCacheItem.HandColor]: this._getMeshMaterialByMeshName(HAND_OBJ_NAME).color.clone(),
+            // [OrigCacheItem.HandColor]: this._getMeshMaterialByMeshName(HAND_OBJ_NAME).color.clone(),
         };
     }
 
@@ -88,10 +91,10 @@ export class Animator {
     }
 
     public animateReset(): SequenceHandler {
-        const mat = this._getMeshMaterialByMeshName(HAND_OBJ_NAME); 
+        // const mat = this._getMeshMaterialByMeshName(HAND_OBJ_NAME); 
         return {
             update: () => {
-                mat.color = this._getOrig<Color>(OrigCacheItem.HandColor);
+                // mat.color = this._getOrig<Color>(OrigCacheItem.HandColor);
                 return true;
             }
         };

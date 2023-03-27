@@ -8,7 +8,7 @@ export interface SimResultsWithScore {
 <script lang="ts">
     import { dev } from '$app/environment';
     import { Canvas, Pass, T, OrbitControls } from '@threlte/core';
-    import { type Scene, AnimationClip, Group } from 'three';
+    import { type Scene, AnimationClip, Group, Material } from 'three';
     import { GLTF } from '@threlte/extras';
     import { degToRad } from 'three/src/math/MathUtils';
     import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass';
@@ -35,6 +35,7 @@ export interface SimResultsWithScore {
     let puzzleBox: Group | undefined;
     let animations: AnimationClip[] | undefined; 
     let animator: Animator | undefined;
+    let materials: Record<string, Material> | undefined;
 
     $: (async () => {
         isPrompting = false;
@@ -127,12 +128,13 @@ export interface SimResultsWithScore {
     }
 
     $: {
-        if (scene && animations && puzzleBox) {
+        if (scene && animations && materials && puzzleBox) {
             animator = new Animator({
                 scene,
                 cameraControl,
                 clips: animations,
                 puzzleBox,
+                materials,
             });
             mainSequencer = animator.getSequencer('main');
             const render = () => {
@@ -247,9 +249,9 @@ export interface SimResultsWithScore {
                     enabled={!mainSequencer?.isPlaying} />
                 <T.DirectionalLight position={[10, 8, 2]} intensity={1} />
             </T.OrthographicCamera>
-            <GLTF url="/puzzlebox.glb" bind:animations={animations} bind:scene={puzzleBox}/>
+            <GLTF url="/puzzlebox.glb" bind:animations={animations} bind:scene={puzzleBox} bind:materials={materials} />
             {#if scene && cameraControl}
-                <Pass pass={new RenderPixelatedPass(3.5, scene, cameraControl.object, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
+                <Pass pass={new RenderPixelatedPass(3, scene, cameraControl.object, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
             {/if}
         </T.Scene>
     </Canvas>
