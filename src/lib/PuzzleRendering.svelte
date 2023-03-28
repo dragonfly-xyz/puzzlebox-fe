@@ -58,51 +58,57 @@ export interface SimResultsWithScore {
         } else {
             const seq = [animator.animateReset()];
             let lastEventName: string | undefined;
-            for (const [i, e] of simResults.puzzleEvents.entries()) {
-                const { eventName } = e;
+            for (let i = 0; i < simResults.puzzleEvents.length; ++i) {
+                const { eventName, args: eventArgs } = simResults.puzzleEvents[i];
                 const nextEventName = simResults.puzzleEvents[i + 1]?.eventName;
                 if (eventName === 'Operate') {
                     seq.push(
                         animator.animateCamera(DEFAULT_VIEW_ANGLE),
                         animator.animateOperateChallenge(),
-                        animator.animateCamera([0.44, -0.76, -0.48]),
                     );
                 } else if (eventName === 'Lock') {
-                    if (e.args.selector === TORCH_SELECTOR && !e.args.isLocked) {
+                    if (eventArgs.selector === TORCH_SELECTOR && !eventArgs.isLocked) {
                         seq.push(
-                            animator.animateCamera([0.073, -0.26, 0.96]),
-                            // animator.animateLockChallenge(),
+                            animator.animateCamera([-0.88, -0.26, -0.39]),
+                            animator.animateLockChallenge(),
                         );
                     }
                 } else if (eventName === 'Drip') {
                     if (lastEventName !== 'Drip') {
-                        seq.push(animator.animateCamera([0.050, -0.26, -0.96]));
+                        seq.push(animator.animateCamera([-0.39, -0.26, -0.88]));
                     }
-                    seq.push(
-                        animator.animateDripChallenge(Number(e.args.dripId)),
-                    );
+                    const dripIds: number[] = [];
+                    for (; i < simResults.puzzleEvents.length; ++i) {
+                        const followupEvent = simResults.puzzleEvents[i];
+                        if (followupEvent.eventName !== 'Drip') {
+                            i = i - 1;
+                            break;
+                        }
+                        dripIds.push(Number(followupEvent.args.dripId));
+                    }
+                    seq.push(animator.animateDripChallenge(dripIds));
                 } else if (eventName === 'Torch') {
                         seq.push(
-                            animator.animateCamera([0.073, -0.26, 0.96]),
-                            // animator.animateTorchChallenge(e.args.dripIds),
+                            animator.animateCamera([-0.88, -0.26, -0.39]),
+                            animator.animateTorchChallenge(),
                         );
                 } else if (eventName === 'Burned') {
                     if (lastEventName !== 'Burned') {
-                        seq.push(animator.animateCamera([0.050, -0.26, -0.96]));
+                        seq.push(animator.animateCamera([-0.39, -0.26, -0.88]));
                     }
                     seq.push(
-                        animator.animateBurnChallenge(Number(e.args.dripId)),
+                        animator.animateBurnChallenge(Number(eventArgs.dripId)),
                     );
                 } else if (eventName === 'Zip') {
                     seq.push(
-                        animator.animateCamera([-0.92, -0.29, -0.25]),
+                        animator.animateCamera([0.29, -0.26, 0.92]),
                         // animator.animateZipChallenge(),
                         animator.animateWait(0.5),
                     );
                 } else if (eventName === 'Spread') {
                     seq.push(
                         animator.animateCamera([0.95, -0.28, -0.13]),
-                        // animator.animateSpreadChallenge(e.args.amount, e.args.remaining),
+                        // animator.animateSpreadChallenge(eventArgs.amount, eventArgs.remaining),
                     );
                 } else if (eventName === 'Open') {
                     seq.push(
@@ -143,6 +149,7 @@ export interface SimResultsWithScore {
                 materials,
             });
             mainSequencer = animator.getSequencer('main');
+            animator.reset();
             const render = () => {
                 animator!.update();
                 requestAnimationFrame(render);
@@ -243,7 +250,7 @@ export interface SimResultsWithScore {
                 position={[2,3,2]}
                 near={0.1}
                 far={20}
-                zoom={60}
+                zoom={75}
             >
                 <OrbitControls
                     minPolarAngle={degToRad(25)}
@@ -257,7 +264,7 @@ export interface SimResultsWithScore {
             </T.OrthographicCamera>
             <GLTF url="/puzzlebox.glb" bind:animations={animations} bind:scene={puzzleBox} bind:materials={materials} />
             {#if scene && cameraControl}
-                <Pass pass={new RenderPixelatedPass(2.5, scene, cameraControl.object, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
+                <Pass pass={new RenderPixelatedPass(2.75, scene, cameraControl.object, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
             {/if}
         </T.Scene>
     </Canvas>

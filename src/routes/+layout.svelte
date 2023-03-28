@@ -80,7 +80,7 @@
 </style>
 
 <header>
-    <div class="banner"><span class="df-ascii">&gt;|&lt;</span><span class="text">Puzzlebox<span class="ext">.sol</span></span></div>
+    <div class="banner"><span class="text">Puzzlebox<span class="ext">.sol</span></span></div>
     <div class="quick-links">
         <div><a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">github</a></div>
         <div><a href="https://twitter.com/merklejerk">support</a></div>
