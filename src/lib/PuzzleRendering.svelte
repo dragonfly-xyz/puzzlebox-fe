@@ -1,14 +1,7 @@
-<script lang="ts" context="module">
-export interface SimResultsWithScore {
-        simResults: SimResults;
-        score: number;
-    }
-</script>
-
 <script lang="ts">
     import { dev } from '$app/environment';
     import { Canvas, Pass, T, OrbitControls } from '@threlte/core';
-    import { type Scene, AnimationClip, Group, Material } from 'three';
+    import type { Scene, AnimationClip, Group, Material } from 'three';
     import { GLTF } from '@threlte/extras';
     import { degToRad } from 'three/src/math/MathUtils';
     import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass';
@@ -20,6 +13,8 @@ export interface SimResultsWithScore {
     import { Animator } from './animator';
     import { TORCH_SELECTOR } from './scoring';
     import { sequence } from '@sveltejs/kit/hooks';
+    import type { SimResultsWithScore } from './types';
+    import { formatScore } from './util';
 
     const dispatch = createEventDispatcher();
     const DEFAULT_VIEW_ANGLE = [-0.60, -0.53, -0.6] as [number, number, number];
@@ -74,10 +69,8 @@ export interface SimResultsWithScore {
                         );
                     }
                 } else if (eventName === 'Drip') {
-                    if (lastEventName !== 'Drip') {
-                        seq.push(animator.animateCamera([-0.39, -0.26, -0.88]));
-                    }
                     const dripIds: number[] = [];
+                    let totalFees = 0n;
                     for (; i < simResults.puzzleEvents.length; ++i) {
                         const followupEvent = simResults.puzzleEvents[i];
                         if (followupEvent.eventName !== 'Drip') {
@@ -85,8 +78,14 @@ export interface SimResultsWithScore {
                             break;
                         }
                         dripIds.push(Number(followupEvent.args.dripId));
+                        totalFees += followupEvent.args.fee;
                     }
-                    seq.push(animator.animateDripChallenge(dripIds));
+                    if (totalFees !== 0n && dripIds.length != 0) {
+                        seq.push(animator.animateCamera([0.89, -0.26, -0.38]));
+                        seq.push(animator.animateTakeFees(Number(totalFees)));
+                        seq.push(animator.animateCamera([-0.39, -0.26, -0.88]));
+                        seq.push(animator.animateDripChallenge(dripIds));
+                    }
                 } else if (eventName === 'Torch') {
                         seq.push(
                             animator.animateCamera([-0.88, -0.26, -0.39]),
@@ -102,18 +101,18 @@ export interface SimResultsWithScore {
                 } else if (eventName === 'Zip') {
                     seq.push(
                         animator.animateCamera([0.29, -0.26, 0.92]),
-                        // animator.animateZipChallenge(),
+                        animator.animateZipChallenge(),
                         animator.animateWait(0.5),
                     );
                 } else if (eventName === 'Spread') {
                     seq.push(
                         animator.animateCamera([0.95, -0.28, -0.13]),
-                        // animator.animateSpreadChallenge(eventArgs.amount, eventArgs.remaining),
+                        animator.animateSpreadChallenge(Number(eventArgs.amount), Number(eventArgs.remaining)),
                     );
                 } else if (eventName === 'Open') {
                     seq.push(
                         animator.animateCamera(DEFAULT_VIEW_ANGLE),
-                        // animator.animateOpenChallenge(),
+                        animator.animateOpenChallenge(),
                     );
                 }
                 if (nextEventName !== eventName) {
@@ -170,10 +169,6 @@ export interface SimResultsWithScore {
         if (simResultsWithScore) {
             dispatch('submitScore', {name: submitName, score: simResultsWithScore.score });
         }
-    }
-
-    function formatScore(score: number) {
-        return score.toLocaleString('en', {useGrouping: true});
     }
 
     const logCameraRay = _.debounce(() => {

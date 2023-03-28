@@ -1,16 +1,13 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
     import type { Score } from './types';
+    import { formatScore } from "./util";
 
     export let hiScores: Score[] = [];
     export let message: string | null = null;
     let sortedHiScores: Score[];
     $: sortedHiScores = hiScores.sort((a: Score, b: Score) => b.score - a.score);
     
-    function formatScore(score: number) {
-        return score.toLocaleString('en', {useGrouping: true});
-    }
-
     let scoresElem: HTMLElement;
     let scrollTimer: NodeJS.Timer;
     const SCROLL_INTERVAL = 250;
@@ -122,16 +119,16 @@
         <div class="message">{ message }</div>
         {:else}
         <div>
-            {#each sortedHiScores.slice(0,10) as hs, idx}
+            {#each sortedHiScores.slice(0,16) as hs, idx}
                 <div class="entry">
                     <div>{ idx + 1}.</div>
-                    <div>{ hs.name }</div>
+                    <div><a href={`https://etherscan.io/address/${hs.address.toLowerCase()}`} target="_blank">{ hs.name }</a></div>
                     <div>{ formatScore(hs.score) }</div>
                 </div>
             {/each}
-            {#if sortedHiScores.length > 16}
+            {#if sortedHiScores.length > 1}
             <div class="more">
-                <a href="/hi-scores" target="_blank">...more &gt;&gt;</a>
+                <a href="/scores" target="_blank">...more &gt;&gt;</a>
             </div>
             {/if}
         </div>

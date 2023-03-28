@@ -24,7 +24,25 @@ interface AnimatorOpts {
     materials: Record<string, Material>;
 }
 
-const OPERATE_CELLS = [
+const TORCH_FIRE_ANIMATIONS = [
+    'torch-flame-inner',
+    'torch-flame-outer',
+    'torch-light',
+];
+
+const MAX_DRIP_TOKENS = 10;
+const MAX_FEES = 1000;
+
+const OPERATE_CELLS = invertCellDesign([
+    0, 1, 1, 1, 1, 1, 0,
+    0, 1, 0, 0, 0, 1, 0,
+    0, 1, 1, 1, 1, 1, 0,
+    0, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 1, 1, 0, 0,
+    0, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 1, 1, 0, 0,
+]);
+const OPEN_CELLS = [
     0, 0, 0, 1, 0, 0, 0,
     1, 0, 0, 1, 0, 0, 1,
     0, 1, 0, 1, 0, 1, 0,
@@ -34,23 +52,9 @@ const OPERATE_CELLS = [
     0, 0, 0, 1, 0, 0, 0,
 ];
 
-const TORCH_FIRE_ANIMATIONS = [
-    'torch-flame-inner',
-    'torch-flame-outer',
-    'torch-light',
-];
-
-const MAX_DRIP_TOKENS = 10;
-
-// const OPERATE_CELLS = [
-//     0, 1, 1, 1, 1, 1, 0,
-//     0, 1, 0, 0, 0, 1, 0,
-//     0, 1, 1, 1, 1, 1, 0,
-//     0, 0, 0, 1, 0, 0, 0,
-//     0, 0, 0, 1, 1, 0, 0,
-//     0, 0, 0, 1, 0, 0, 0,
-//     0, 0, 0, 1, 1, 0, 0,
-// ];
+function invertCellDesign(design: number[]): number[] {
+    return design.map(v => v == 0 ? 1 : 0);
+}
 
 export class Animator {
     private _lastUpdateTime: number = 0;
@@ -68,16 +72,36 @@ export class Animator {
         this._materialsByName = opts.materials;
         this._clipsByName = Object.assign(
             {},
-            ...opts.clips.map(a => ({ [a.name]: a })),
+            ...opts.clips.map(a => {
+                if (/^\./.test(a.name)) {
+                    for (const t of a.tracks) {
+                        const m = /^[^.]+(.+)$/.exec(t.name);
+                        if (m) {
+                            t.name = m[1];
+                        }
+                    }
+                }
+                return { [a.name]: a };
+            }),
         );
     }
 
     private _getMeshByName(name: string): Mesh {
-        return this._getObjectByName(name) as Mesh;
+        return this._getObjectByName<Mesh>(name);
     }
 
-    private _getObjectByName(name: string): Object3D {
-        return this._puzzleBox.getObjectByName(name) as Object3D;
+    private _getObjectByName<T extends Object3D = Object3D>(name: string): T {
+        return this._puzzleBox.getObjectByName(name) as T;
+    }
+
+    private _findObjects<T extends Object3D = Object3D>(filter: (o: Object3D) => boolean): T[] {
+        const items = [] as T[];
+        for (const o of this._allObjects()) {
+            if (filter(o)) {
+                items.push(o as T);
+            }
+        }
+        return items;
     }
 
     public getSequencer(name: string): Sequencer {
@@ -103,20 +127,30 @@ export class Animator {
     }
 
     public reset() {
-        const cells = this._getObjectByName('grid-cells').children.map(c => c as Mesh);
-        const inactiveCellMaterial = this._materialsByName['box-basic'];
-        for (const cell of cells) {
-            cell.position.y = 0;
-            cell.material = inactiveCellMaterial;
-        }
-        for (const o of this._allObjects()) {
-            o.visible = o.userData['hide'] === undefined ? true : !o.userData['hide'];
+        {
+            const cells = this._getObjectByName('grid-cells').children.map(c => c as Mesh);
+            const inactiveCellMaterial = this._materialsByName['box-basic'];
+            for (const cell of cells) {
+                cell.position.y = 0;
+                cell.material = inactiveCellMaterial;
+            }
+            for (const o of this._allObjects()) {
+                o.visible = o.userData['hide'] === undefined ? true : !o.userData['hide'];
+            }
         }
         this._getSharedAnimationAction('torch-unlock').stop();
         for (let i = 0; i < MAX_DRIP_TOKENS; ++i) {
             this._getSharedAnimationAction(`drip.00${i}`).stop();
             this._getSharedAnimationAction(`burn.00${i}`).stop();
         }
+        {
+            const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
+            for (const c of coins) {
+                this._getSharedAnimationAction('.coin-flip-in', c).stop();
+                this._getSharedAnimationAction('.coin-flip-out', c).stop();
+            }
+        }
+        this._getSharedAnimationAction('zip').stop();
     }
 
     private *_allObjects(root?: Object3D): IterableIterator<Object3D> {
@@ -180,7 +214,7 @@ export class Animator {
     }
     
     public animateRattleBox(): SequenceHandler {
-        const action = this._getSharedAnimationAction('rattle', { timeScale: 1.25 });
+        const action = this._getSharedAnimationAction('rattle', null, { timeScale: 1.25 });
         return {
             enter() { action.stop(); action.play(); },
             update() { return !action.isRunning(); },
@@ -188,6 +222,14 @@ export class Animator {
     }
     
     public animateOperateChallenge(): SequenceHandler {
+        return this._animateTopRipple(OPERATE_CELLS);
+    }
+
+    public animateOpenChallenge(): SequenceHandler {
+        return this._animateTopRipple(OPEN_CELLS);
+    }
+
+    private _animateTopRipple(design: number[]): SequenceHandler {
         const cellsRoot = this._getObjectByName('grid-cells');
         cellsRoot.updateMatrix();
         const cells = cellsRoot.children.map(c => c as Mesh);
@@ -226,7 +268,7 @@ export class Animator {
                     const d = ripplePlane.distanceToPoint(p);
                     let y = lerp(0, maxY, clamp(1 - Math.abs(d), 0, 1) ** 2);
                     if (d <= 0) {
-                        if (OPERATE_CELLS[i]) {
+                        if (design[i]) {
                             y = Math.max(y, maxY * 0.15);
                             cell.material = activeMat;
                         } else {
@@ -242,12 +284,13 @@ export class Animator {
 
     private _getSharedAnimationAction(
         clipName: string,
+        root?: Object3D | null,
         opts?: Partial<{ loop: boolean; clamp: boolean; timeScale: number; }>,
     ): AnimationAction {
         const clip = this._clipsByName[clipName];
-        let action = this._mixer!.existingAction(clip);
+        let action = this._mixer!.existingAction(clip, root || undefined);
         if (!action) {
-            action = this._mixer!.clipAction(clip);
+            action = this._mixer!.clipAction(clip, root || undefined);
             opts = {
                 loop: false,
                 clamp: false,
@@ -266,6 +309,7 @@ export class Animator {
     public animateDripChallenge(dripIds: number[]): SequenceHandler {
         const actions = dripIds.map(id => this._getSharedAnimationAction(
             `drip.00${id - 1}`,
+            null,
             { clamp: true, timeScale: 0.5 },
         ));
         return {
@@ -280,9 +324,9 @@ export class Animator {
     }
 
     public animateBurnChallenge(dripId: number): SequenceHandler {
-        const burnEffectAction = this._getSharedAnimationAction('burn-effect');
+        const burnEffectAction = this._getSharedAnimationAction('burn-effect', null, { timeScale: 1.5 });
         const dripTokenAction = this._getSharedAnimationAction(`drip.00${dripId - 1}`);
-        const burnTokenAction = this._getSharedAnimationAction(`burn.00${dripId - 1}`);
+        const burnTokenAction = this._getSharedAnimationAction(`burn.00${dripId - 1}`, null, { timeScale: 1.5 });
         let burnTokenActionCompleted = false;
         return {
             enter() {
@@ -305,7 +349,11 @@ export class Animator {
     }
 
     public animateLockChallenge(): SequenceHandler {
-        const torchUnlockAction = this._getSharedAnimationAction('torch-unlock', { clamp: true });
+        const torchUnlockAction = this._getSharedAnimationAction(
+            'torch-unlock',
+            null,
+            { clamp: true },
+        );
         return {
             enter() {
                 torchUnlockAction.stop();
@@ -320,7 +368,7 @@ export class Animator {
     public animateTorchChallenge(duration=2.0): SequenceHandler {
         const fire = this._getMeshByName('torch-fire');
         const glow = this._getMeshByName('torch-glow');
-        const actions = TORCH_FIRE_ANIMATIONS.map(n => this._getSharedAnimationAction(n, { loop: true }));
+        const actions = TORCH_FIRE_ANIMATIONS.map(n => this._getSharedAnimationAction(n, null, { loop: true }));
         return {
             enter() {
                 fire.visible = true;
@@ -335,5 +383,52 @@ export class Animator {
             }
         };
     }
+
+    public animateTakeFees(fees: number): SequenceHandler {
+        const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
+        const maxCoinIdx = Math.floor((fees / MAX_FEES) * coins.length);
+        const animatedCoins = coins.slice(0, maxCoinIdx);
+        const actions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-in', c, { clamp: true }));
+        return {
+            update({ runningTime }) {
+                let i = Math.floor(runningTime / COIN_FLIP_DELAY);
+                if (i < actions.length && !actions[i].isRunning()) {
+                    actions[i].stop().play();
+                }
+                return i >= actions.length && actions.every(a => !a.isRunning());
+            },
+        };
+    }
+
+    public animateSpreadChallenge(spreadAmount: number, remaining: number): SequenceHandler {
+        const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
+        const total = spreadAmount + remaining;
+        const maxCoinIdx = Math.floor(((spreadAmount + remaining) / total) * coins.length);
+        const minCoinIdx = Math.floor((remaining / total) * coins.length);
+        const animatedCoins = coins.slice(minCoinIdx, maxCoinIdx);
+        const inActions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-in', c));
+        const outActions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-out', c, { clamp: true }));
+        return {
+            update({ runningTime }) {
+                let i = Math.floor(runningTime / COIN_FLIP_DELAY);
+                if (i < outActions.length && !outActions[i].isRunning()) {
+                    inActions[i].stop();
+                    outActions[i].stop().play();
+                }
+                return i >= outActions.length && outActions.every(a => !a.isRunning());
+            },
+        };
+    }
+
+    public animateZipChallenge(duration: number = 1.5): SequenceHandler {
+        const action = this._getSharedAnimationAction('zip', null, { loop: true });
+        return {
+            enter() { action.stop().play(); },
+            update({runningTime}) {
+                return runningTime >= duration;
+            }
+        };
+    }
 }
 
+const COIN_FLIP_DELAY = 0.1;
