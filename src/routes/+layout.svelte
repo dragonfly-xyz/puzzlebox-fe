@@ -65,7 +65,7 @@
         display: flex;
         flex-direction: column;
         align-items: end;
-        padding: 0 2em;
+        padding: 0 2em 1em 2em;
         font-family: 'Silkscreen', monospace;
     }
     footer .dfly {
