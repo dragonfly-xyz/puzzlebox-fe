@@ -1,5 +1,17 @@
+<script lang="ts" context="module">
+    export enum ExpandAction {
+        None,
+        Expand,
+        Inpand,
+    }
+</script>
+
 <script lang="ts">
     import { createEventDispatcher, onMount } from 'svelte';
+    import CodeMirror from 'svelte-codemirror-editor';
+    import { parser as solidityParser } from '@replit/codemirror-lang-solidity';
+    import { oneDarkTheme, oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
+    import { LanguageSupport, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 
     const dispatch = createEventDispatcher();
 
@@ -8,6 +20,15 @@
     export let contents: string = '';
     export let actionText: string = '';
     export let busy: boolean = false;
+    export let expandAction = ExpandAction.None;
+    const editorLang = new LanguageSupport(StreamLanguage.define(solidityParser), syntaxHighlighting(oneDarkHighlightStyle));
+    const editorStyles = {
+        '*': { 'font-family': `'Comic Mono', monospace` },
+        '&': {
+            'font-family': `'Comic Mono', monospace`,
+            'font-size': `0.75em`,
+        }
+    };
 
     function act() {
         if (error) {
@@ -15,6 +36,10 @@
             return;
         }
         dispatch('action', contents);
+    }
+
+    function expand() {
+        dispatch('expand');
     }
 
 </script>
@@ -28,22 +53,15 @@
         position: relative;
     }
 
-    .content {
+    .component > :global(.pz-code-editor) {
         box-sizing: border-box;
-        background-color: #ccc;
         height: 100%;
         color: #000;
-        padding: 1ex 1ex 1em 1ex;
-        font-family: 'Comic Mono', monospace;
-        min-height: 3em;
-        cursor: text;
-        white-space: pre-wrap;
-        font-size: 0.85em;
-        overflow-x: auto;
+        min-height: 10em;
     }
 
-    .content[readonly] {
-        background-color: #bbbbdd;
+    .component > :global(.codemirror-wrapper > .cm-editor) {
+        height: 100%;
     }
 
     .cover {
@@ -62,10 +80,16 @@
     }
 
     .action {
-        float: right;
         position: absolute;
-        right: 3ex;
-        bottom: 0em;
+        right: 2.5ex;
+        bottom: 0.3em;
+    }
+
+    .expand {
+        position: absolute;
+        right: 2.5ex;
+        top: 0.5em;
+        font-weight: bold;
     }
 
     .hidden {
@@ -85,8 +109,19 @@
 </style>
 
 <div class="component">
-    <textarea class="content" readonly={readOnly} bind:value={contents}></textarea>
+    <CodeMirror
+        class="pz-code-editor"
+        readonly={readOnly}
+        lang={editorLang}
+        styles={editorStyles}
+        bind:value={contents}
+        theme={oneDarkTheme}
+        tabSize={4}
+        />
     <div class="cover">
+        <button class="expand pixel-button" on:click={expand} class:hidden={expandAction === ExpandAction.None}>
+            {expandAction === ExpandAction.Expand ? '⛶' : '🡵'}
+        </button>
         <button class="action pixel-button" on:click={act} disabled={busy} aria-busy={busy}>
             {error ? 'Got it' : actionText}
         </button>

@@ -1,6 +1,6 @@
 <script lang="ts">
     import HiScoreDisplay from '$lib/HiScoreDisplay.svelte';
-    import CodeEditor from '$lib/CodeEditor.svelte';
+    import CodeEditor, { ExpandAction } from '$lib/CodeEditor.svelte';
     import PuzzleRendering, { type SimResultsWithScore } from '$lib/PuzzleRendering.svelte';
     import challengeCode from '$lib/sol/PuzzleBox.sol?raw';
     import solutionStubCode from '$lib/sol/Solution.sol?raw';
@@ -11,6 +11,7 @@
     import { getScores, submitScore } from '$lib/backend';
     import type { Score } from '$lib/types';
     import { onMount } from 'svelte';
+    import { scrollIntoView } from 'seamless-scroll-polyfill';
 
     enum SolveStep {
         None = 'Solve',
@@ -26,6 +27,7 @@
     let submitPromise: Promise<any> | null = null;
     let solutionCode = solutionStubCode;
     let puzzleRenderingEl: HTMLElement | undefined;
+    let challengeCodeExpanded = false;
 
     function copyChallenge({detail: contents}: CustomEvent<string>) {
         navigator.clipboard.writeText(contents);
@@ -55,7 +57,7 @@
     }
 
     function onSolutionAnimating(e: CustomEvent<any>) {
-        puzzleRenderingEl.scrollIntoView({ behavior: 'smooth' });
+        scrollIntoView(puzzleRenderingEl, {behavior: 'smooth', block: 'start', inline: 'center'}, { duration: 250 });
     }
 
     function onSubmitScore({ detail }: { detail: { name: string, score: number } } ) {
@@ -70,9 +72,14 @@
             .finally(() => submitPromise = null );
     }
 
+    function expandChallengeCode() {
+        challengeCodeExpanded = !challengeCodeExpanded;
+    }
+
     async function refreshScores(): Promise<void> {
         hiScores = await getScores(16);
     }
+
 
     onMount(async () => {
         const pollScores = async () => {
@@ -114,17 +121,30 @@
             flex: 1;
         }
     }
-    .challenge {
-        height: 13em;
+    .code {
+        width: map-get($breakpoints, "xs");
+        @media (min-width: map-get($breakpoints, "lg")) {
+            width: map-get($breakpoints, "lg");
+        }
+        @media (min-width: map-get($breakpoints, "md")) {
+            width: map-get($breakpoints, "md");
+        }
+        @media (min-width: map-get($breakpoints, "sm")) {
+            width: map-get($breakpoints, "sm");
+        }
+        min-height: 12em;
+        max-height: 32em;
         flex: 100%;
+    }
+    .challenge.expanded {
+        max-height: fit-content;
     }
     .solution {
-        height: 13em;
-        flex: 100%;
+        max-height: fit-content;
     }
-    .spacer {
-        flex: 100%;
-        height: 0;
+    .filename {
+        padding-left: 2ex;
+        opacity: 0.75;
     }
 </style>
 
@@ -143,16 +163,25 @@
     <div class="hi-scores">
         <HiScoreDisplay hiScores={hiScores || []} message={hiScores ? null : 'Loading...'} scrollSpeed={2000} scrollPause={2500}></HiScoreDisplay>
     </div>
-    <div class="challenge">
-        <CodeEditor readOnly contents={challengeCode} on:action={copyChallenge} actionText={'Copy'}></CodeEditor>
+    <div class="challenge code" class:expanded={challengeCodeExpanded}>
+        <div class="filename">./PuzzleBox.sol</div>
+        <CodeEditor
+            readOnly
+            contents={challengeCode}
+            on:action={copyChallenge}
+            actionText={'Copy'}
+            expandAction={challengeCodeExpanded ? ExpandAction.Inpand : ExpandAction.Expand}
+            on:expand={expandChallengeCode}
+        />
     </div>
-    <div class="solution">
+    <div class="solution code">
+        <div class="filename">./Solution.sol</div>
         <CodeEditor
             bind:contents={solutionCode}
             on:action={onSolve}
             actionText={solveStep}
             busy={solveStep != SolveStep.None}
             bind:error={solutionError}
-        ></CodeEditor>
+        />
     </div>
 </div>

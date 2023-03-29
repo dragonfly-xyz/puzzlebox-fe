@@ -50,7 +50,7 @@
         display: flex;
         flex-direction: column;
         height: 100%;
-        background-color: #333;
+        background-color: #282c34;
         padding: 0.5em;
     }
 
@@ -83,6 +83,7 @@
 
     .entry >:nth-child(1) {
         width: 5ex;
+        padding-right: 1ex;
     }
 
     .entry >:nth-child(2) {
@@ -110,6 +111,10 @@
         50% { opacity: 15%; }
         100% { opacity: 100%; }
     }
+
+    .entry a {
+        color: inherit !important;
+    }
 </style>
 
 <div class="component">
@@ -121,7 +126,7 @@
         <div>
             {#each sortedHiScores.slice(0,16) as hs, idx}
                 <div class="entry">
-                    <div>{ idx + 1}.</div>
+                    <div>{ idx + 1 }.</div>
                     <div><a href={`https://etherscan.io/address/${hs.address.toLowerCase()}`} target="_blank">{ hs.name }</a></div>
                     <div>{ formatScore(hs.score) }</div>
                 </div>

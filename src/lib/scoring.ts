@@ -19,7 +19,7 @@ const BREAKPOINT_RULES: { [event: string]: EventRule } = {
     'Spread': { weight: 1.5, maxCount: 1, verify: (args: any) => args.remaining === 0n },
     'Open': { weight: 2, maxCount: 1 },
 }
-const GAS_BONUS = 3000;
+const GAS_BONUS = 5000;
 
 export function scoreSimResults(sim: SimResults): number {
     if (sim.error || sim.gasUsed === 0) {
@@ -42,7 +42,7 @@ export function scoreSimResults(sim: SimResults): number {
         if (eventName === 'Open' && instances.length != 0) {
             opened = true;
         }
-        score += Math.max(score, rule.weight * instances.length);
+        score += rule.weight * instances.length;
     }
     score *= BASE_SCORE;
     if (opened) {
