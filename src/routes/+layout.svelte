@@ -47,14 +47,9 @@
     .banner .text .ext {
         font-size: 0.66em;
     }
-    .banner .df-ascii {
-        font-family: 'Silkscreen', monospace;
-        letter-spacing: -0.25ex;
-        text-shadow: none;
-        margin: -0.15em 0 0 0.25ex;
-        transform: rotate(-8deg);
-        color: #444;
-        float: left;
+    .banner a {
+        color: inherit !important;
+        text-decoration: none !important;
     }
     .quick-links {
         display: flex;
@@ -80,7 +75,7 @@
 </style>
 
 <header>
-    <div class="banner"><span class="text">Puzzlebox<span class="ext">.sol</span></span></div>
+    <div class="banner"><a class="text" href="/">Puzzlebox<span class="ext">.sol</span></a></div>
     <div class="quick-links">
         <div><a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">github</a></div>
         <div><a href="https://twitter.com/merklejerk">support</a></div>

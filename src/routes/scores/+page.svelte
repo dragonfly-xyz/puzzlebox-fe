@@ -34,10 +34,26 @@
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
+        margin: 0 1ex;
+    }
+    .header {
+        align-self: center;
+        font-size: 1.5em;
+        animation: blink 0.85s steps(1, end) infinite;
+        margin-bottom: 1em;
+    }
+    .loading {
+        align-self: center;
+    }
+    @keyframes blink {
+        0% { opacity: 100% };
+        50% { opacity: 15%; }
+        100% { opacity: 100%; }
     }
 </style>
 
 <div class="component">
+    <div class="header">HI SCORES</div>
     {#if isLoading}
     <div class="loading">loading...</div>
     {:else}
