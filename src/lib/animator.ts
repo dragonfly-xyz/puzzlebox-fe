@@ -31,7 +31,8 @@ const TORCH_FIRE_ANIMATIONS = [
 ];
 
 const MAX_DRIP_TOKENS = 10;
-const MAX_FEES = 1000;
+const MAX_FEES = 100 * [...new Array(10)].map((_, i) => 2**i).reduce((acc, v) => acc + v);
+const MAX_SPREAD = 1000;
 
 const OPERATE_CELLS = invertCellDesign([
     0, 1, 1, 1, 1, 1, 0,
@@ -386,7 +387,12 @@ export class Animator {
 
     public animateTakeFees(fees: number): SequenceHandler {
         const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
-        const maxCoinIdx = Math.floor((fees / MAX_FEES) * coins.length);
+        let maxCoinIdx = 0;
+        {
+            let x = fees;
+            for (let d = 100; d < MAX_FEES && fees / d >= 1; d *= 2, ++maxCoinIdx) ;
+            maxCoinIdx = Math.floor(Math.min(1, maxCoinIdx / MAX_DRIP_TOKENS) * coins.length);
+        }
         const animatedCoins = coins.slice(0, maxCoinIdx);
         const actions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-in', c, { clamp: true }));
         return {
@@ -402,10 +408,9 @@ export class Animator {
 
     public animateSpreadChallenge(spreadAmount: number, remaining: number): SequenceHandler {
         const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
-        const total = spreadAmount + remaining;
-        const maxCoinIdx = Math.floor(((spreadAmount + remaining) / total) * coins.length);
-        const minCoinIdx = Math.floor((remaining / total) * coins.length);
-        const animatedCoins = coins.slice(minCoinIdx, maxCoinIdx);
+        const maxCoinIdx = Math.ceil(Math.min(1, (spreadAmount + remaining) / MAX_SPREAD) * coins.length);
+        const minCoinIdx = Math.floor((remaining / MAX_SPREAD) * coins.length);
+        const animatedCoins = coins.slice(minCoinIdx, maxCoinIdx).reverse();
         const inActions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-in', c));
         const outActions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-out', c, { clamp: true }));
         return {
