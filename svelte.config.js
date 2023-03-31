@@ -1,7 +1,6 @@
 import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/kit/vite';
 import seqPreprocessor from 'svelte-sequential-preprocessor';
-import { preprocessThrelte } from '@threlte/preprocess';
 
 const dev = process.argv.includes('dev');
 
@@ -9,7 +8,7 @@ const dev = process.argv.includes('dev');
 const config = {
 	// Consult https://kit.svelte.dev/docs/integrations#preprocessors
 	// for more information about preprocessors
-	preprocess: seqPreprocessor([vitePreprocess(), preprocessThrelte()]),
+	preprocess: seqPreprocessor([vitePreprocess()]),
 
 	kit: {
 		adapter: adapter({

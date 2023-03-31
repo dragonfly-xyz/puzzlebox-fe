@@ -1,20 +1,34 @@
 <script lang="ts">
     import { dev } from '$app/environment';
-    import { Canvas, Pass, T, OrbitControls } from '@threlte/core';
-    import type { Scene, AnimationClip, Group, Material } from 'three';
-    import { GLTF } from '@threlte/extras';
+    import {
+    AmbientLight,
+        Camera,
+        Color,
+        DirectionalLight,
+        Group,
+        LinearToneMapping,
+        Matrix4,
+        OrthographicCamera,
+        Scene,
+        Vector2,
+        Vector3,
+        WebGLRenderer,
+        type AnimationClip,
+        type Material,
+    } from 'three';
     import { degToRad } from 'three/src/math/MathUtils';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+    import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
     import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass';
-    import type { OrbitControls as OrbitControlsType } from 'three/examples/jsm/controls/OrbitControls';
+    import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
     import { createEventDispatcher } from 'svelte';
-    import type { DecodedEvent, SimResults } from './simulate';
     import type { Sequencer } from './sequencer';
     import _ from 'underscore';
     import { Animator } from './animator';
     import { TORCH_SELECTOR } from './scoring';
-    import { sequence } from '@sveltejs/kit/hooks';
     import type { SimResultsWithScore } from './types';
     import { formatScore } from './util';
+    import { onMount } from 'svelte';
 
     const dispatch = createEventDispatcher();
     const DEFAULT_VIEW_ANGLE = [-0.60, -0.53, -0.6] as [number, number, number];
@@ -24,113 +38,182 @@
     export let submitName: string = '';
     export let submitPromise: Promise<any> | null = null;
 
-    let scene : Scene;
-    let cameraControl: OrbitControlsType;
     let isPrompting = false;
-    let mainSequencer: Sequencer | undefined;
-    let puzzleBox: Group | undefined;
-    let animations: AnimationClip[] | undefined; 
-    let animator: Animator | undefined;
-    let materials: Record<string, Material> | undefined;
+    let renderContext: {
+        scene: Scene;
+        camera: Camera;
+        puzzleBox: Group;
+        animator: Animator;
+        mainSequencer: Sequencer;
+        cameraControl: OrbitControls;
+        renderer: WebGLRenderer;
+        composer: EffectComposer;
+    } | undefined;
 
-    $: (async () => {
-        isPrompting = false;
-        if (!simResultsWithScore
-            || simResultsWithScore.simResults.error
-            || !animator 
-            || !mainSequencer)
-        {
-            return;   
+    onMount(async () => {
+        const gltfLoader = new GLTFLoader();
+        const model = await gltfLoader.loadAsync('puzzlebox.glb');
+        console.log(model);
+        const puzzleBox = model.scene;
+        const animations = model.animations;
+        const [w, h] = [el!.clientWidth, el!.clientHeight]
+        const renderer = new WebGLRenderer({ alpha: true, antialias: false });
+        renderer.setSize(w, h);
+        renderer.setViewport(0, 0, w, h);
+        const aspectRatio = w / h;
+        const scene = new Scene();
+        scene.add(puzzleBox);
+        scene.add(new AmbientLight(new Color(1, 1, 1), 1.5));
+        const zoom = 0.45;
+        const camera = new OrthographicCamera(
+            -aspectRatio / zoom,
+            aspectRatio / zoom,
+            1 / zoom,
+            -1 / zoom,
+            0.05,
+            10,
+        );
+        camera.position.set(2, 2, 2);
+        scene.add(camera);
+        const light = new DirectionalLight(new Color(1, 1, 1), 0.5);
+        camera.add(light);
+        light.position.set(0, 3, 1);
+        light.target = puzzleBox;
+        const cameraControl = new OrbitControls(camera, renderer.domElement);
+        cameraControl.minPolarAngle = degToRad(25);
+        cameraControl.maxPolarAngle = degToRad(75);
+        cameraControl.enableZoom = false;
+        cameraControl.enablePan = false;
+        cameraControl.target = new Vector3(0, 0, 0);
+        cameraControl.update();
+        const composer = new EffectComposer(renderer);
+        renderer.toneMapping = LinearToneMapping;
+        renderer.toneMappingExposure = 0.85;
+        composer.addPass(new RenderPixelatedPass(4, scene, camera, { depthEdgeStrength: 0.15, normalEdgeStrength: 0.001 }));
+        const animator = new Animator({
+            scene,
+            cameraControl,
+            puzzleBox,
+            clips: animations,
+            materials: {},
+        });
+        animator.reset();
+        renderContext = {
+            scene,
+            camera,
+            animator,
+            cameraControl,
+            puzzleBox,
+            renderer,
+            composer,
+            mainSequencer: animator.getSequencer('__main__'),
+        };
+        el?.insertBefore(renderer.domElement, el?.firstChild);
+        const render = () => {
+            composer.render(animator!.update());
+            requestAnimationFrame(render);
         }
-        dispatch('animating');
-        const { simResults } = simResultsWithScore;
-        if (simResults.puzzleEvents.length === 0) {
-            mainSequencer.play([
-                animator.animateReset(),
-                animator.animateCamera(DEFAULT_VIEW_ANGLE),
-                animator.animateRattleBox(),
-            ]);
-        } else {
-            const seq = [animator.animateReset()];
-            let lastEventName: string | undefined;
-            for (let i = 0; i < simResults.puzzleEvents.length; ++i) {
-                const { eventName, args: eventArgs } = simResults.puzzleEvents[i];
-                const nextEventName = simResults.puzzleEvents[i + 1]?.eventName;
-                if (eventName === 'Operate') {
-                    seq.push(
-                        animator.animateCamera(DEFAULT_VIEW_ANGLE),
-                        animator.animateOperateChallenge(),
-                    );
-                } else if (eventName === 'Lock') {
-                    if (eventArgs.selector === TORCH_SELECTOR && !eventArgs.isLocked) {
-                        seq.push(
-                            animator.animateCamera([-0.88, -0.26, -0.39]),
-                            animator.animateLockChallenge(),
-                        );
-                    }
-                } else if (eventName === 'Drip') {
-                    const dripIds: number[] = [];
-                    let totalFees = 0n;
-                    for (; i < simResults.puzzleEvents.length; ++i) {
-                        const followupEvent = simResults.puzzleEvents[i];
-                        if (followupEvent.eventName !== 'Drip') {
-                            i = i - 1;
-                            break;
-                        }
-                        dripIds.push(Number(followupEvent.args.dripId));
-                        totalFees += followupEvent.args.fee;
-                    }
-                    if (totalFees !== 0n && dripIds.length != 0) {
-                        seq.push(animator.animateCamera([0.89, -0.26, -0.38]));
-                        seq.push(animator.animateTakeFees(Number(totalFees)));
-                        seq.push(animator.animateCamera([-0.39, -0.26, -0.88]));
-                        seq.push(animator.animateDripChallenge(dripIds));
-                    }
-                } else if (eventName === 'Torch') {
-                        seq.push(
-                            animator.animateCamera([-0.88, -0.26, -0.39]),
-                            animator.animateTorchChallenge(),
-                        );
-                } else if (eventName === 'Burned') {
-                    if (lastEventName !== 'Burned') {
-                        seq.push(animator.animateCamera([-0.39, -0.26, -0.88]));
-                    }
-                    seq.push(
-                        animator.animateBurnChallenge(Number(eventArgs.dripId)),
-                    );
-                } else if (eventName === 'Zip') {
-                    seq.push(
-                        animator.animateCamera([0.29, -0.26, 0.92]),
-                        animator.animateZipChallenge(),
-                        animator.animateWait(0.5),
-                    );
-                } else if (eventName === 'Spread') {
-                    seq.push(
-                        animator.animateCamera([0.95, -0.28, -0.13]),
-                        animator.animateSpreadChallenge(Number(eventArgs.amount), Number(eventArgs.remaining)),
-                    );
-                } else if (eventName === 'Open') {
-                    seq.push(
-                        animator.animateCamera(DEFAULT_VIEW_ANGLE),
-                        animator.animateOpenChallenge(),
-                    );
-                }
-                if (nextEventName !== eventName) {
-                    seq.push(animator.animateWait(0.5));
-                }
-                lastEventName = eventName;
-            }
-            seq.push(
-                animator.animateCamera(DEFAULT_VIEW_ANGLE),
-                animator.animateWait(1),
-            );
-            await mainSequencer.play(seq);
-            console.log('complete');
-            if (simResultsWithScore.score > 0) {
-                isPrompting = true;
-            }
-        }
-    })();
+        render();
+    });
+
+    // $: (async () => {
+    //     isPrompting = false;
+    //     if (!simResultsWithScore
+    //         || simResultsWithScore.simResults.error
+    //         || !animator 
+    //         || !mainSequencer)
+    //     {
+    //         return;   
+    //     }
+    //     dispatch('animating');
+    //     const { simResults } = simResultsWithScore;
+    //     if (simResults.puzzleEvents.length === 0) {
+    //         mainSequencer.play([
+    //             animator.animateReset(),
+    //             animator.animateCamera(DEFAULT_VIEW_ANGLE),
+    //             animator.animateRattleBox(),
+    //         ]);
+    //     } else {
+    //         const seq = [animator.animateReset()];
+    //         let lastEventName: string | undefined;
+    //         for (let i = 0; i < simResults.puzzleEvents.length; ++i) {
+    //             const { eventName, args: eventArgs } = simResults.puzzleEvents[i];
+    //             const nextEventName = simResults.puzzleEvents[i + 1]?.eventName;
+    //             if (eventName === 'Operate') {
+    //                 seq.push(
+    //                     animator.animateCamera(DEFAULT_VIEW_ANGLE),
+    //                     animator.animateOperateChallenge(),
+    //                 );
+    //             } else if (eventName === 'Lock') {
+    //                 if (eventArgs.selector === TORCH_SELECTOR && !eventArgs.isLocked) {
+    //                     seq.push(
+    //                         animator.animateCamera([-0.88, -0.26, -0.39]),
+    //                         animator.animateLockChallenge(),
+    //                     );
+    //                 }
+    //             } else if (eventName === 'Drip') {
+    //                 const dripIds: number[] = [];
+    //                 let totalFees = 0n;
+    //                 for (; i < simResults.puzzleEvents.length; ++i) {
+    //                     const followupEvent = simResults.puzzleEvents[i];
+    //                     if (followupEvent.eventName !== 'Drip') {
+    //                         i = i - 1;
+    //                         break;
+    //                     }
+    //                     dripIds.push(Number(followupEvent.args.dripId));
+    //                     totalFees += followupEvent.args.fee;
+    //                 }
+    //                 if (totalFees !== 0n && dripIds.length != 0) {
+    //                     seq.push(animator.animateCamera([0.89, -0.26, -0.38]));
+    //                     seq.push(animator.animateTakeFees(Number(totalFees)));
+    //                     seq.push(animator.animateCamera([-0.39, -0.26, -0.88]));
+    //                     seq.push(animator.animateDripChallenge(dripIds));
+    //                 }
+    //             } else if (eventName === 'Torch') {
+    //                     seq.push(
+    //                         animator.animateCamera([-0.88, -0.26, -0.39]),
+    //                         animator.animateTorchChallenge(),
+    //                     );
+    //             } else if (eventName === 'Burned') {
+    //                 if (lastEventName !== 'Burned') {
+    //                     seq.push(animator.animateCamera([-0.39, -0.26, -0.88]));
+    //                 }
+    //                 seq.push(
+    //                     animator.animateBurnChallenge(Number(eventArgs.dripId)),
+    //                 );
+    //             } else if (eventName === 'Zip') {
+    //                 seq.push(
+    //                     animator.animateCamera([0.29, -0.26, 0.92]),
+    //                     animator.animateZipChallenge(),
+    //                     animator.animateWait(0.5),
+    //                 );
+    //             } else if (eventName === 'Spread') {
+    //                 seq.push(
+    //                     animator.animateCamera([0.95, -0.28, -0.13]),
+    //                     animator.animateSpreadChallenge(Number(eventArgs.amount), Number(eventArgs.remaining)),
+    //                 );
+    //             } else if (eventName === 'Open') {
+    //                 seq.push(
+    //                     animator.animateCamera(DEFAULT_VIEW_ANGLE),
+    //                     animator.animateOpenChallenge(),
+    //                 );
+    //             }
+    //             if (nextEventName !== eventName) {
+    //                 seq.push(animator.animateWait(0.5));
+    //             }
+    //             lastEventName = eventName;
+    //         }
+    //         seq.push(
+    //             animator.animateCamera(DEFAULT_VIEW_ANGLE),
+    //             animator.animateWait(1),
+    //         );
+    //         await mainSequencer.play(seq);
+    //         console.log('complete');
+    //         if (simResultsWithScore.score > 0) {
+    //             isPrompting = true;
+    //         }
+    //     }
+    // })();
 
     $: {
         if (submitPromise) {
@@ -138,28 +221,46 @@
         }
     }
 
-    $: {
-        if (scene && animations && materials && puzzleBox) {
-            animator = new Animator({
-                scene,
-                cameraControl,
-                clips: animations,
-                puzzleBox,
-                materials,
-            });
-            mainSequencer = animator.getSequencer('main');
-            animator.reset();
-            const render = () => {
-                animator!.update();
-                requestAnimationFrame(render);
-            }
-            render();
-        }
-    }
+    // $: {
+    //     if (canvasContext && animations && materials && puzzleBox) {
+    //         composer = new EffectComposer(canvasContext.renderer);
+    //         {
+    //             const bloomEffect = new SelectiveBloomEffect(
+    //                 canvasContext.scene,
+    //                 cameraControl.object,
+    //                 {
+    //                     blendFunction: BlendFunction.ADD,
+    //                     mipmapBlur: true,
+    //                     luminanceThreshold: 0.7,
+    //                     luminanceSmoothing: 0.3,
+    //                     intensity: 3.0
+    //                 },
+    //             );
+    //             bloomEffect.inverted = true;
+    //             const pixelEffect = new PixelationEffect();
+    //             composer.addPass(new EffectPass(cameraControl.object, bloomEffect, pixelEffect));
+    //         }
+    //         animator = new Animator({
+    //             scene: canvasContext.scene,
+    //             cameraControl,
+    //             clips: animations,
+    //             puzzleBox,
+    //             materials,
+    //         });
+    //         mainSequencer = animator.getSequencer('main');
+    //         animator.reset();
+    //         const render = () => {
+    //             animator!.update();
+                
+    //             requestAnimationFrame(render);
+    //         }
+    //         render();
+    //     }
+    // }
 
     $: {
-        if (dev && cameraControl) {
-            cameraControl.addEventListener('change', () => {
+        if (renderContext?.cameraControl) {
+            renderContext.cameraControl.addEventListener('change', () => {
                 logCameraRay();
             });
         }
@@ -172,6 +273,7 @@
     }
 
     const logCameraRay = _.debounce(() => {
+        const cameraControl = renderContext!.cameraControl;
         console.log(`Camera ray:`,
             '<' + cameraControl.target.clone().sub(cameraControl.object.position)
                 .normalize()
@@ -237,8 +339,8 @@
 </style>
 
 <div class="component" bind:this={el}>
-    <Canvas>
-        <T.Scene bind:ref={scene}>
+    <!-- <Canvas bind:this={canvas}>
+        <T.Scene bind:ctx={canvasContext}>
             <T.AmbientLight intensity={0.75} />
             <T.OrthographicCamera
                 makeDefault
@@ -258,11 +360,11 @@
                 <T.DirectionalLight position={[10, 8, 2]} intensity={1} />
             </T.OrthographicCamera>
             <GLTF url="/puzzlebox.glb" bind:animations={animations} bind:scene={puzzleBox} bind:materials={materials} />
-            {#if scene && cameraControl}
+            {#if canvasContext}
                 <Pass pass={new RenderPixelatedPass(2.75, scene, cameraControl.object, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
             {/if}
         </T.Scene>
-    </Canvas>
+    </Canvas> -->
     <div class="cover" class:active={isPrompting} on:click|stopPropagation={() => {isPrompting = false}}>
         <div class="box" class:busy={submitPromise} on:click|stopPropagation>
             <div>

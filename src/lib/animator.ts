@@ -15,6 +15,7 @@ import {
 } from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { clamp, lerp } from 'three/src/math/MathUtils';
+import type { Selection } from 'postprocessing';
 
 interface AnimatorOpts {
     scene: Scene;
@@ -112,7 +113,7 @@ export class Animator {
         return this._sequencerByName[name];
     }
 
-    public update(): void {
+    public update(): number {
         let dt = Date.now() / 1e3;
         if (this._lastUpdateTime == 0) {
             this._lastUpdateTime = dt;
@@ -125,33 +126,41 @@ export class Animator {
         for (const k in this._sequencerByName) {
             this._sequencerByName[k].update(dt);
         }
+        return dt;
     }
 
     public reset() {
-        {
-            const cells = this._getObjectByName('grid-cells').children.map(c => c as Mesh);
-            const inactiveCellMaterial = this._materialsByName['box-basic'];
-            for (const cell of cells) {
-                cell.position.y = 0;
-                cell.material = inactiveCellMaterial;
-            }
-            for (const o of this._allObjects()) {
-                o.visible = o.userData['hide'] === undefined ? true : !o.userData['hide'];
-            }
-        }
-        this._getSharedAnimationAction('torch-unlock').stop();
-        for (let i = 0; i < MAX_DRIP_TOKENS; ++i) {
-            this._getSharedAnimationAction(`drip.00${i}`).stop();
-            this._getSharedAnimationAction(`burn.00${i}`).stop();
-        }
-        {
-            const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
-            for (const c of coins) {
-                this._getSharedAnimationAction('.coin-flip-in', c).stop();
-                this._getSharedAnimationAction('.coin-flip-out', c).stop();
-            }
-        }
-        this._getSharedAnimationAction('zip').stop();
+        // for (const o of this._allObjects()) {
+        //     this._bloomSelection.add(o);
+        //     // if (o.userData['bloom']) {
+        //     // } else {
+        //     //     this._bloomSelection.delete(o);
+        //     // }
+        // }
+        // {
+        //     const cells = this._getObjectByName('grid-cells').children.map(c => c as Mesh);
+        //     const inactiveCellMaterial = this._materialsByName['box-basic'];
+        //     for (const cell of cells) {
+        //         cell.position.y = 0;
+        //         cell.material = inactiveCellMaterial;
+        //     }
+        //     for (const o of this._allObjects()) {
+        //         o.visible = o.userData['hide'] === undefined ? true : !o.userData['hide'];
+        //     }
+        // }
+        // this._getSharedAnimationAction('torch-unlock').stop();
+        // for (let i = 0; i < MAX_DRIP_TOKENS; ++i) {
+        //     this._getSharedAnimationAction(`drip.00${i}`).stop();
+        //     this._getSharedAnimationAction(`burn.00${i}`).stop();
+        // }
+        // {
+        //     const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
+        //     for (const c of coins) {
+        //         this._getSharedAnimationAction('.coin-flip-in', c).stop();
+        //         this._getSharedAnimationAction('.coin-flip-out', c).stop();
+        //     }
+        // }
+        // this._getSharedAnimationAction('zip').stop();
     }
 
     private *_allObjects(root?: Object3D): IterableIterator<Object3D> {
