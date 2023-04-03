@@ -12,17 +12,20 @@ import {
     Object3D,
     Plane,
     type AnimationAction,
+    Euler,
+    MeshStandardMaterial,
+    MeshPhysicalMaterial,
+    Color,
+    type ColorRepresentation,
 } from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { clamp, lerp } from 'three/src/math/MathUtils';
-import type { Selection } from 'postprocessing';
+import { clamp, degToRad, lerp } from 'three/src/math/MathUtils';
 
 interface AnimatorOpts {
     scene: Scene;
     puzzleBox: Group;
     cameraControl: OrbitControls;
     clips: AnimationClip[];
-    materials: Record<string, Material>;
 }
 
 const TORCH_FIRE_ANIMATIONS = [
@@ -35,16 +38,7 @@ const MAX_DRIP_TOKENS = 10;
 const MAX_FEES = 100 * [...new Array(10)].map((_, i) => 2**i).reduce((acc, v) => acc + v);
 const MAX_SPREAD = 1000;
 
-const OPERATE_CELLS = invertCellDesign([
-    0, 1, 1, 1, 1, 1, 0,
-    0, 1, 0, 0, 0, 1, 0,
-    0, 1, 1, 1, 1, 1, 0,
-    0, 0, 0, 1, 0, 0, 0,
-    0, 0, 0, 1, 1, 0, 0,
-    0, 0, 0, 1, 0, 0, 0,
-    0, 0, 0, 1, 1, 0, 0,
-]);
-const OPEN_CELLS = [
+const DRAGONFLY_PATTERN = [
     0, 0, 0, 1, 0, 0, 0,
     1, 0, 0, 1, 0, 0, 1,
     0, 1, 0, 1, 0, 1, 0,
@@ -54,24 +48,35 @@ const OPEN_CELLS = [
     0, 0, 0, 1, 0, 0, 0,
 ];
 
-function invertCellDesign(design: number[]): number[] {
-    return design.map(v => v == 0 ? 1 : 0);
+function isMesh(o: Object3D): o is Mesh {
+    return o.type === 'Mesh';
 }
 
 export class Animator {
     private _lastUpdateTime: number = 0;
     private readonly _sequencerByName: { [name: string]: Sequencer } = {};
     private readonly _cameraControl: OrbitControls;
-    private readonly _mixer: AnimationMixer;
-    private readonly _clipsByName: { [name: string]: AnimationClip };
-    private readonly _materialsByName: { [name: string]: Material };
+    private readonly _mixerByRootName: Record<string, AnimationMixer> = {};
+    private readonly _clipsByName: Record<string, AnimationClip>;
+    private readonly _materialsByName: Record<string, MeshStandardMaterial>;
     private readonly _puzzleBox: Group;
     
     public constructor(opts: AnimatorOpts) {
         this._cameraControl = opts.cameraControl;
-        this._mixer = new AnimationMixer(opts.scene);
         this._puzzleBox = opts.puzzleBox;
-        this._materialsByName = opts.materials;
+        this._materialsByName = Object.assign(
+            {},
+            ...(() => {
+                const mats: Record<string, Material>[] = [];
+                for (const o of this._allObjects()) {
+                    if (isMesh(o)) {
+                        const mat = o.material as MeshStandardMaterial;
+                        mats.push({[mat.name]: mat });
+                    }
+                }
+                return mats;
+            })(),
+        );
         this._clipsByName = Object.assign(
             {},
             ...opts.clips.map(a => {
@@ -113,6 +118,41 @@ export class Animator {
         return this._sequencerByName[name];
     }
 
+    private _getMixer(root: Object3D = this._puzzleBox): AnimationMixer {
+        if (!(root.name in this._mixerByRootName)) {
+            this._mixerByRootName[root.name] = new AnimationMixer(root);
+        }
+        return this._mixerByRootName[root.name];
+    }
+
+    private _createAnimationAction(
+        mixer: AnimationMixer,
+        clipName: string,
+        opts?: Partial<{ loop: 'loop' | 'bounce' | false; clamp: boolean; timeScale: number; root: Object3D }>,
+    ): AnimationAction {
+        const clip = this._clipsByName[clipName];
+        opts = {
+            loop: false,
+            clamp: false,
+            timeScale: 1.0,
+            ...opts,
+        };
+        let action = mixer.existingAction(clip, opts.root);
+        if (!action) {
+            action = mixer.clipAction(clip, opts.root);
+        }
+        if (!opts.loop) {
+            action.setLoop(2200, 0);
+        } else if (opts.loop === 'bounce') {
+            action.setLoop(2202, Infinity);
+        } else {
+            action.setLoop(2201, Infinity);
+        }
+        action.clampWhenFinished = !!opts.clamp;
+        action.timeScale = opts.timeScale === undefined ? 1.0 : opts.timeScale;
+        return action;
+    }
+
     public update(): number {
         let dt = Date.now() / 1e3;
         if (this._lastUpdateTime == 0) {
@@ -122,7 +162,9 @@ export class Animator {
             dt -= this._lastUpdateTime;
             this._lastUpdateTime += dt;
         }
-        this._mixer.update(dt);
+        // for (const k in this._mixerByRootName) {
+        //     this._mixerByRootName[k].update(dt);
+        // }
         for (const k in this._sequencerByName) {
             this._sequencerByName[k].update(dt);
         }
@@ -130,13 +172,20 @@ export class Animator {
     }
 
     public reset() {
-        // for (const o of this._allObjects()) {
-        //     this._bloomSelection.add(o);
-        //     // if (o.userData['bloom']) {
-        //     // } else {
-        //     //     this._bloomSelection.delete(o);
-        //     // }
-        // }
+        this.getSequencer('auto-rotate-camera').play([this._animateAutoRotate()]);
+        this.getSequencer('idle-box-glow').play([this._animateIdleBoxGlow()]);
+        
+        for (const o of this._allObjects()) {
+            const data = o.userData;
+            if (data?.tags) {
+                if (typeof(data.tags) === 'string') {
+                    data.tags = data.tags.split(/\s+/);
+                }
+            }
+            if (data?.tags?.includes('hidden')) {
+                o.visible = false;
+            }
+        }
         // {
         //     const cells = this._getObjectByName('grid-cells').children.map(c => c as Mesh);
         //     const inactiveCellMaterial = this._materialsByName['box-basic'];
@@ -192,6 +241,80 @@ export class Animator {
         }
     }
 
+    private _animateAutoRotate(cooldown: number = 5, speed: number = 18): SequenceHandler {
+        const cameraControl = this._cameraControl;
+        const camera = cameraControl.object;
+        let autoRotateCooldown = 0;
+        this._cameraControl.addEventListener('start', () => {
+            autoRotateCooldown = Infinity;
+        });
+        this._cameraControl.addEventListener('end', () => {
+            autoRotateCooldown = cooldown;
+        });
+        return {
+            update({ dt }) {
+                if (autoRotateCooldown <= 0) {
+                    const r = degToRad(speed * dt);
+                    camera.applyMatrix4(
+                        new Matrix4().makeTranslation(
+                            ...cameraControl.target.clone().negate().toArray(),
+                        ).multiply(
+                            new Matrix4().makeRotationFromEuler(new Euler(0, r, 0)),
+                        ).multiply(
+                            new Matrix4().makeTranslation(
+                                ...cameraControl.target.toArray(),
+                            ),
+                        ),
+                    );
+                }
+                autoRotateCooldown -= dt;
+                return false;
+            }
+        };
+    }
+
+    private _setCoreColor(color: ColorRepresentation) {
+        this._materialsByName['glow'].emissive.set(color);
+        this._materialsByName['core'].color.set(color);
+    }
+
+    private _animateIdleBoxGlow(): SequenceHandler {
+        const mixer = this._getMixer(this._getObjectByName('light-leak'));
+        const action = this._createAnimationAction(
+            mixer,
+            'light-leak-idle',
+            { loop: 'bounce' },
+        );
+        action.weight = 0.35;
+        action.timeScale = 0.75;
+        const glowMat = this._materialsByName['glow'] as MeshPhysicalMaterial;
+        this._materialsByName['panel'].color.set('#1a0707');
+        this._setCoreColor('#550000');
+        let initialOpacity = 1;
+        return {
+            enter() {
+                action.play();
+                initialOpacity = glowMat.opacity = 0.75;
+                // glowMat.emissive.set('#ff0000');
+            },
+            update({ dt, runningTime }) {
+                mixer.update(dt);
+                glowMat.opacity = initialOpacity -
+                    (Math.sin(runningTime * Math.PI / 1.75) / 2 + 0.5) * 0.33;
+                return false;
+            },
+            exit() {
+                mixer.stopAllAction();
+                glowMat.opacity = initialOpacity;
+            }
+        }
+
+    }
+
+    public animateOperateChallenge(): SequenceHandler {
+        return this._animateTopRipple(DRAGONFLY_PATTERN);
+    }
+
     public animateCamera(
         endLookDir_: [number, number, number],
         duration: number = 0.5,
@@ -230,90 +353,46 @@ export class Animator {
             update() { return !action.isRunning(); },
         };
     }
-    
-    public animateOperateChallenge(): SequenceHandler {
-        return this._animateTopRipple(OPERATE_CELLS);
-    }
 
     public animateOpenChallenge(): SequenceHandler {
-        return this._animateTopRipple(OPEN_CELLS);
+        return this._animateTopRipple(DRAGONFLY_PATTERN);
     }
 
     private _animateTopRipple(design: number[]): SequenceHandler {
-        const cellsRoot = this._getObjectByName('grid-cells');
-        cellsRoot.updateMatrix();
-        const cells = cellsRoot.children.map(c => c as Mesh);
-        const cellsRootInverse = cellsRoot.matrix.clone().invert();
-        const rippleStartObj = this._getObjectByName('grid-ripple-start');
-        rippleStartObj.updateMatrix();
-        const rippleEndObj = this._getObjectByName('grid-ripple-end');
-        rippleEndObj.updateMatrix();
-        const rippleStart = new Vector3().applyMatrix4(
-            cellsRootInverse.clone().multiply(rippleStartObj.matrix)
-        );
-        const rippleEnd = new Vector3().applyMatrix4(
-            cellsRootInverse.clone().multiply(rippleEndObj.matrix)
-        );
-        const inactiveMat = this._materialsByName['box-basic'];
-        const activeMat = this._materialsByName['grid-activated'];
-        const rippleDuration = 1.5;
-        const rippleDir = new Vector3().subVectors(rippleEnd, rippleStart).normalize();
-        const up = new Vector3(0, 1, 0);
-        const rippleSurfacePlane = new Plane().setFromNormalAndCoplanarPoint(
-            new Vector3().crossVectors(rippleDir, up).normalize().cross(rippleDir),
-            rippleStart,
-        );
-        return {
-            update: ({ runningTime }) => {
-                const ripplePos = rippleStart
-                    .clone()
-                    .lerp(rippleEnd, Math.min(1, runningTime / rippleDuration));
-                const ripplePlane = new Plane().setFromNormalAndCoplanarPoint(
-                    rippleDir,
-                    ripplePos,
-                );
-                const p = new Vector3();
-                for (const [i, cell] of cells.entries()) {
-                    const maxY = rippleSurfacePlane.projectPoint(cell.position, p).y;
-                    const d = ripplePlane.distanceToPoint(p);
-                    let y = lerp(0, maxY, clamp(1 - Math.abs(d), 0, 1) ** 2);
-                    if (d <= 0) {
-                        if (design[i]) {
-                            y = Math.max(y, maxY * 0.15);
-                            cell.material = activeMat;
-                        } else {
-                            cell.material = inactiveMat;
-                        }
-                    }
-                    cell.translateY(y - cell.position.y);
+        const root = this._getObjectByName('top-panel');
+        const cells = root.children.map(c => c as Group);
+        const rippleDuration = 1.25;
+        const inactiveMat = this._materialsByName['panel'];
+        const activeMat = this._materialsByName['cube-active'];
+        const mixers = cells.map(c => new AnimationMixer(c));
+        const actions = cells.map((v, i) => this._createAnimationAction(
+            mixers[i],
+            design[i] ? '.cube-ripple-hold' : '.cube-ripple',
+            { clamp: true, root: v },
+        ));
+        const playCellAction = (x: number, y: number) => {
+            if (x >= 0 && x <= 6 && y >= 0 && y <= 6) {
+                const i = y * 7 + x;
+                const a = actions[i];
+                if (!a.isRunning()) {
+                    a.play();
+                    (cells[i].children[1] as Mesh).material = design[i] ? activeMat : inactiveMat;
                 }
-                return runningTime >= rippleDuration;
             }
         }
-    }
-
-    private _getSharedAnimationAction(
-        clipName: string,
-        root?: Object3D | null,
-        opts?: Partial<{ loop: boolean; clamp: boolean; timeScale: number; }>,
-    ): AnimationAction {
-        const clip = this._clipsByName[clipName];
-        let action = this._mixer!.existingAction(clip, root || undefined);
-        if (!action) {
-            action = this._mixer!.clipAction(clip, root || undefined);
-            opts = {
-                loop: false,
-                clamp: false,
-                timeScale: 1.0,
-                ...opts,
-            };
+        return {
+            update: ({ dt, runningTime }) => {
+                for (const m of mixers) {
+                    m.update(dt);
+                }
+                const t = Math.min(1, runningTime / rippleDuration);
+                const i = Math.floor(t * 14);
+                for (let j = 0; j <= i; ++j) {
+                    playCellAction(i - j, j);
+                }
+                return t >= 1 && actions.every(a => !a.isRunning());
+            },
         }
-        if (opts) {
-            action.setLoop(opts.loop ? 1 : 0, opts.loop ? 10000 : 1);
-            action.clampWhenFinished = !!opts.clamp;
-            action.timeScale = opts.timeScale === undefined ? 1.0 : opts.timeScale;
-        }
-        return action;
     }
 
     public animateDripChallenge(dripIds: number[]): SequenceHandler {

@@ -53,7 +53,6 @@
     onMount(async () => {
         const gltfLoader = new GLTFLoader();
         const model = await gltfLoader.loadAsync('puzzlebox.glb');
-        console.log(model);
         const puzzleBox = model.scene;
         const animations = model.animations;
         const [w, h] = [el!.clientWidth, el!.clientHeight]
@@ -89,13 +88,12 @@
         const composer = new EffectComposer(renderer);
         renderer.toneMapping = LinearToneMapping;
         renderer.toneMappingExposure = 0.85;
-        composer.addPass(new RenderPixelatedPass(4, scene, camera, { depthEdgeStrength: 0.15, normalEdgeStrength: 0.001 }));
+        composer.addPass(new RenderPixelatedPass(3, scene, camera, { depthEdgeStrength: 0.15, normalEdgeStrength: 0.001 }));
         const animator = new Animator({
             scene,
             cameraControl,
             puzzleBox,
             clips: animations,
-            materials: {},
         });
         animator.reset();
         renderContext = {
@@ -114,6 +112,7 @@
             requestAnimationFrame(render);
         }
         render();
+        renderContext.mainSequencer.play([animator.animateOperateChallenge()]);
     });
 
     // $: (async () => {
@@ -339,32 +338,6 @@
 </style>
 
 <div class="component" bind:this={el}>
-    <!-- <Canvas bind:this={canvas}>
-        <T.Scene bind:ctx={canvasContext}>
-            <T.AmbientLight intensity={0.75} />
-            <T.OrthographicCamera
-                makeDefault
-                position={[2,3,2]}
-                near={0.1}
-                far={20}
-                zoom={75}
-            >
-                <OrbitControls
-                    minPolarAngle={degToRad(25)}
-                    maxPolarAngle={degToRad(75)}
-                    enableZoom={false}
-                    target={{x: 0, y: 1.25, z: 0}}
-                    bind:controls={cameraControl}
-                    enablePan={false}
-                    enabled={!mainSequencer?.isPlaying} />
-                <T.DirectionalLight position={[10, 8, 2]} intensity={1} />
-            </T.OrthographicCamera>
-            <GLTF url="/puzzlebox.glb" bind:animations={animations} bind:scene={puzzleBox} bind:materials={materials} />
-            {#if canvasContext}
-                <Pass pass={new RenderPixelatedPass(2.75, scene, cameraControl.object, { normalEdgeStrength: 0.001, depthEdgeStrength: 0.001 })} />
-            {/if}
-        </T.Scene>
-    </Canvas> -->
     <div class="cover" class:active={isPrompting} on:click|stopPropagation={() => {isPrompting = false}}>
         <div class="box" class:busy={submitPromise} on:click|stopPropagation>
             <div>
