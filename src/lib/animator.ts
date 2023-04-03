@@ -1,4 +1,4 @@
-import { Sequencer, type SequenceHandler } from './sequencer';
+import { MultiSequencer, Sequencer, wrapSequencer, type SequenceHandler } from './sequencer';
 import {
     AnimationClip,
     AnimationMixer,
@@ -37,6 +37,7 @@ const TORCH_FIRE_ANIMATIONS = [
 const MAX_DRIP_TOKENS = 10;
 const MAX_FEES = 100 * [...new Array(10)].map((_, i) => 2**i).reduce((acc, v) => acc + v);
 const MAX_SPREAD = 1000;
+const BLACK = new Color(0,0,0);
 
 const DRAGONFLY_PATTERN = [
     0, 0, 0, 1, 0, 0, 0,
@@ -52,14 +53,27 @@ function isMesh(o: Object3D): o is Mesh {
     return o.type === 'Mesh';
 }
 
+function parseTags(raw: string | undefined | Record<string, boolean>): Record<string, boolean> {
+    if (!raw) {
+        return {};
+    }
+    if (typeof(raw) === 'string') {
+        return Object.assign(
+            {},
+            ...raw.split(/\s+/).map(v => ({ [v]: true }) ),
+        );
+    }
+    return raw;
+}
+
 export class Animator {
     private _lastUpdateTime: number = 0;
-    private readonly _sequencerByName: { [name: string]: Sequencer } = {};
     private readonly _cameraControl: OrbitControls;
     private readonly _mixerByRootName: Record<string, AnimationMixer> = {};
     private readonly _clipsByName: Record<string, AnimationClip>;
     private readonly _materialsByName: Record<string, MeshStandardMaterial>;
     private readonly _puzzleBox: Group;
+    private readonly _sequencer: MultiSequencer = new MultiSequencer();
     
     public constructor(opts: AnimatorOpts) {
         this._cameraControl = opts.cameraControl;
@@ -71,6 +85,7 @@ export class Animator {
                 for (const o of this._allObjects()) {
                     if (isMesh(o)) {
                         const mat = o.material as MeshStandardMaterial;
+                        mat.userData.tags = parseTags(mat.userData.tags);
                         mats.push({[mat.name]: mat });
                     }
                 }
@@ -91,6 +106,16 @@ export class Animator {
                 return { [a.name]: a };
             }),
         );
+        for (const o of this._allObjects()) {
+            const data = o.userData || {};
+            data.tags = parseTags(data.tags || {});
+            if (isMesh(o)) {
+                if (data.tags['unique-mat']) {
+                    o.material = (o.material as Material).clone();
+                }
+            }
+            o.userData = data;
+        }
     }
 
     private _getMeshByName(name: string): Mesh {
@@ -109,13 +134,6 @@ export class Animator {
             }
         }
         return items;
-    }
-
-    public getSequencer(name: string): Sequencer {
-        if (!(this._sequencerByName[name])) {
-            this._sequencerByName[name] = new Sequencer();
-        }
-        return this._sequencerByName[name];
     }
 
     private _getMixer(root: Object3D = this._puzzleBox): AnimationMixer {
@@ -165,51 +183,20 @@ export class Animator {
         // for (const k in this._mixerByRootName) {
         //     this._mixerByRootName[k].update(dt);
         // }
-        for (const k in this._sequencerByName) {
-            this._sequencerByName[k].update(dt);
-        }
+        this._sequencer.update(dt);
         return dt;
     }
 
     public reset() {
-        this.getSequencer('auto-rotate-camera').play([this._animateAutoRotate()]);
-        this.getSequencer('idle-box-glow').play([this._animateIdleBoxGlow()]);
+        this._sequencer.stop();
+        this._animateAutoRotate();
+        this._animateIdleBoxGlow();
         
         for (const o of this._allObjects()) {
-            const data = o.userData;
-            if (data?.tags) {
-                if (typeof(data.tags) === 'string') {
-                    data.tags = data.tags.split(/\s+/);
-                }
-            }
-            if (data?.tags?.includes('hidden')) {
+            if (o.userData.tags?.['hidden']) {
                 o.visible = false;
             }
         }
-        // {
-        //     const cells = this._getObjectByName('grid-cells').children.map(c => c as Mesh);
-        //     const inactiveCellMaterial = this._materialsByName['box-basic'];
-        //     for (const cell of cells) {
-        //         cell.position.y = 0;
-        //         cell.material = inactiveCellMaterial;
-        //     }
-        //     for (const o of this._allObjects()) {
-        //         o.visible = o.userData['hide'] === undefined ? true : !o.userData['hide'];
-        //     }
-        // }
-        // this._getSharedAnimationAction('torch-unlock').stop();
-        // for (let i = 0; i < MAX_DRIP_TOKENS; ++i) {
-        //     this._getSharedAnimationAction(`drip.00${i}`).stop();
-        //     this._getSharedAnimationAction(`burn.00${i}`).stop();
-        // }
-        // {
-        //     const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
-        //     for (const c of coins) {
-        //         this._getSharedAnimationAction('.coin-flip-in', c).stop();
-        //         this._getSharedAnimationAction('.coin-flip-out', c).stop();
-        //     }
-        // }
-        // this._getSharedAnimationAction('zip').stop();
     }
 
     private *_allObjects(root?: Object3D): IterableIterator<Object3D> {
@@ -241,7 +228,7 @@ export class Animator {
         }
     }
 
-    private _animateAutoRotate(cooldown: number = 5, speed: number = 18): SequenceHandler {
+    private _animateAutoRotate(cooldown: number = 5, speed: number = 18): Promise<void> {
         const cameraControl = this._cameraControl;
         const camera = cameraControl.object;
         let autoRotateCooldown = 0;
@@ -251,7 +238,8 @@ export class Animator {
         this._cameraControl.addEventListener('end', () => {
             autoRotateCooldown = cooldown;
         });
-        return {
+        return this._sequencer.play('auto-rotate',
+            [{
             update({ dt }) {
                 if (autoRotateCooldown <= 0) {
                     const r = degToRad(speed * dt);
@@ -270,15 +258,27 @@ export class Animator {
                 autoRotateCooldown -= dt;
                 return false;
             }
-        };
+            }],
+        );
     }
 
-    private _setCoreColor(color: ColorRepresentation) {
-        this._materialsByName['glow'].emissive.set(color);
-        this._materialsByName['core'].color.set(color);
+    private _setCoreColor(darkColor: Color, lightColor: Color) {
+        for (const o of this._allObjects()) {
+            if (isMesh(o)) {
+                const mat = o.material as MeshStandardMaterial;
+                if (mat.userData.tags?.['core']) {
+                    const c = mat.userData.tags?.['dark'] ? darkColor : lightColor;
+                    if (mat.emissive.equals(BLACK)) {
+                        mat.color.set(c);
+                    } else {
+                        mat.emissive.set(c);
+                    }
+                }
+            }
+        }
     }
 
-    private _animateIdleBoxGlow(): SequenceHandler {
+    private _animateIdleBoxGlow(): Promise<void> {
         const mixer = this._getMixer(this._getObjectByName('light-leak'));
         const action = this._createAnimationAction(
             mixer,
@@ -287,63 +287,98 @@ export class Animator {
         );
         action.weight = 0.35;
         action.timeScale = 0.75;
-        const glowMat = this._materialsByName['glow'] as MeshPhysicalMaterial;
-        this._materialsByName['panel'].color.set('#1a0707');
-        this._setCoreColor('#550000');
+        const glowMat = this._getMeshByName('light-leak').material as MeshStandardMaterial;
         let initialOpacity = 1;
-        return {
-            enter() {
-                action.play();
-                initialOpacity = glowMat.opacity = 0.75;
-                // glowMat.emissive.set('#ff0000');
-            },
-            update({ dt, runningTime }) {
-                mixer.update(dt);
-                glowMat.opacity = initialOpacity -
-                    (Math.sin(runningTime * Math.PI / 1.75) / 2 + 0.5) * 0.33;
-                return false;
-            },
-            exit() {
-                mixer.stopAllAction();
-                glowMat.opacity = initialOpacity;
-            }
-        }
-
+        return this._sequencer.play('box-glow',
+            [{
+                enter: () => {
+                    action.play();
+                    this._setCoreColor(new Color('#100000'), new Color('#990000'));
+                    initialOpacity = glowMat.opacity = 0.75;
+                },
+                update({ dt, runningTime }) {
+                    mixer.update(dt);
+                    glowMat.opacity = initialOpacity -
+                        (Math.sin(runningTime * Math.PI / 1.75) / 2 + 0.5) * 0.33;
+                    return false;
+                },
+                exit() {
+                    mixer.stopAllAction();
+                    glowMat.opacity = initialOpacity;
+                }
+            }],
+        );
     }
 
-    public animateOperateChallenge(): SequenceHandler {
-        return this._animateTopRipple(DRAGONFLY_PATTERN);
+    public animateOperateChallenge(): Promise<void> {
+        this._animateTopRipple(DRAGONFLY_PATTERN);
+        this.animateFlash();
+        let startColors = [new Color('#100000'), new Color('#990000')];
+        let endColors = [new Color('#001700'), new Color('#11ff88')];
+        return this._sequencer.extend(
+            'main',
+            [{
+                update: ({ runningTime }) => {
+                    const t = Math.min(1, runningTime / 1.0);
+                    this._setCoreColor(...startColors.map((c, i) => c.clone().lerp(endColors[i], t)) as [Color, Color]);
+                    return t >= 1;
+                },
+            }],
+        );
+    }
+
+    public animateFlash(): Promise<void> {
+        const light = this._getMeshByName('light-leak');
+        const maxScale = new Vector3(1.15, 1.15, 1.15);
+        let initialScale: Vector3;
+        return this._sequencer.play(
+            'flash',
+            [{
+                enter() {
+                    initialScale = light.scale.clone();
+                },
+                update: ({ runningTime }) => {
+                    const t = Math.min(1, runningTime / 0.5);
+                    light.scale.copy(initialScale).lerp(maxScale, Math.sin(t * Math.PI));
+                    console.log(initialScale, maxScale, t);
+                    return t >= 1;
+                },
+            }],
+        );
     }
 
     public animateCamera(
         endLookDir_: [number, number, number],
         duration: number = 0.5,
-    ): SequenceHandler {
+    ): Promise<void> {
         const camera = this._cameraControl.object;
         const origin = this._cameraControl.target.clone();
         const dist = this._cameraControl.getDistance();
         const endLookDir = new Vector3(...endLookDir_).normalize();
-        return {
-            update: ({ runningTime }) => {
-                const toOrigin = origin.clone().sub(camera.position);
-                const lookDir = toOrigin.clone().divideScalar(dist);
-                if (1 - Math.abs(lookDir.dot(endLookDir)) < 1e-7) {
-                    return true;
-                }
-                const t = runningTime == 0 ? 0 : Math.min(1, runningTime / duration);
-                const r = new Quaternion().slerp(
-                    new Quaternion().setFromUnitVectors(lookDir, endLookDir),
-                    t,
-                );
-                const newLookDir = lookDir.clone().applyQuaternion(r);
-                const newToOrigin = newLookDir.clone().multiplyScalar(dist);
-                camera.applyMatrix4(
-                    new Matrix4().makeTranslation(...(toOrigin.clone().sub(newToOrigin).toArray()))
-                );
-                this._cameraControl.update();
-                return runningTime >= duration;
-            },
-        };
+        return this._sequencer.play(
+            'main',
+            [{
+                update: ({ runningTime }) => {
+                    const toOrigin = origin.clone().sub(camera.position);
+                    const lookDir = toOrigin.clone().divideScalar(dist);
+                    if (1 - Math.abs(lookDir.dot(endLookDir)) < 1e-7) {
+                        return true;
+                    }
+                    const t = runningTime == 0 ? 0 : Math.min(1, runningTime / duration);
+                    const r = new Quaternion().slerp(
+                        new Quaternion().setFromUnitVectors(lookDir, endLookDir),
+                        t,
+                    );
+                    const newLookDir = lookDir.clone().applyQuaternion(r);
+                    const newToOrigin = newLookDir.clone().multiplyScalar(dist);
+                    camera.applyMatrix4(
+                        new Matrix4().makeTranslation(...(toOrigin.clone().sub(newToOrigin).toArray()))
+                    );
+                    this._cameraControl.update();
+                    return runningTime >= duration;
+                },
+            }],
+        );
     }
     
     public animateRattleBox(): SequenceHandler {
@@ -358,13 +393,13 @@ export class Animator {
         return this._animateTopRipple(DRAGONFLY_PATTERN);
     }
 
-    private _animateTopRipple(design: number[]): SequenceHandler {
+    private _animateTopRipple(design: number[]): Promise<void> {
         const root = this._getObjectByName('top-panel');
         const cells = root.children.map(c => c as Group);
         const rippleDuration = 1.25;
         const inactiveMat = this._materialsByName['panel'];
         const activeMat = this._materialsByName['cube-active'];
-        const mixers = cells.map(c => new AnimationMixer(c));
+        const mixers = cells.map(c => this._getMixer(c));
         const actions = cells.map((v, i) => this._createAnimationAction(
             mixers[i],
             design[i] ? '.cube-ripple-hold' : '.cube-ripple',
@@ -380,19 +415,21 @@ export class Animator {
                 }
             }
         }
-        return {
-            update: ({ dt, runningTime }) => {
-                for (const m of mixers) {
-                    m.update(dt);
-                }
-                const t = Math.min(1, runningTime / rippleDuration);
-                const i = Math.floor(t * 14);
-                for (let j = 0; j <= i; ++j) {
-                    playCellAction(i - j, j);
-                }
-                return t >= 1 && actions.every(a => !a.isRunning());
-            },
-        }
+        return this._sequencer.play('top-ripple',
+            [{
+                update: ({ dt, runningTime }) => {
+                    for (const m of mixers) {
+                        m.update(dt);
+                    }
+                    const t = Math.min(1, runningTime / rippleDuration);
+                    const i = Math.floor(t * 14);
+                    for (let j = 0; j <= i; ++j) {
+                        playCellAction(i - j, j);
+                    }
+                    return t >= 1 && actions.every(a => !a.isRunning());
+                },
+            }],
+        );
     }
 
     public animateDripChallenge(dripIds: number[]): SequenceHandler {

@@ -20,6 +20,7 @@ export class AnimationAbortedError extends Error {
 
 export class Sequencer {
     private _currentStepIdx: number = 0;
+    private _currentSequencePromise: Promise<void> | null = null;
     private _currentSequenceOnComplete: (() => void) | null = null;
     private _currentSequenceOnAbort: (() => void) | null = null;
     private _currentSequence: SequenceStep[] | null = null;
@@ -89,6 +90,7 @@ export class Sequencer {
         this._currentSequence = null;
         this._currentSequenceOnComplete = null;
         this._currentSequenceOnAbort = null;
+        this._currentSequencePromise = null;
         if (step) {
             const { handler } = step;
             if (step.started) {
@@ -110,7 +112,7 @@ export class Sequencer {
 
     public play(items: SequenceHandler[]): Promise<void> {
         this._stop(false);
-        const p = new Promise<void>((accept, reject) => {
+        this._currentSequencePromise = new Promise<void>((accept, reject) => {
             this._currentSequenceOnComplete = () => accept();
             this._currentSequenceOnAbort = () => reject(new AnimationAbortedError());
         });
@@ -120,7 +122,19 @@ export class Sequencer {
             runningTime: 0,
         }));
         this.update(0);
-        return p;
+        return this._currentSequencePromise;
+    }
+
+    public extend(items: SequenceHandler[]): Promise<void> {
+        if (!this.isPlaying) {
+            return this.play(items);
+        }
+        this._currentSequence?.push(...items.map(h => ({
+            handler: h,
+            started: false,
+            runningTime: 0,
+        })));
+        return this._currentSequencePromise!;
     }
 
     public get isPlaying(): boolean {
@@ -130,4 +144,85 @@ export class Sequencer {
     private get _currentStep(): SequenceStep | null {
         return this._currentSequence?.[this._currentStepIdx] || null;
     }
+}
+
+export class MultiSequencer {
+    private readonly _channels: Record<string, Sequencer> = {};
+    private _loop: boolean = false;
+
+    private _getChannel(name: string): Sequencer {
+        return this._channels[name] = this._channels[name] || new Sequencer();
+    }
+
+    public getChannel(name: string): Sequencer {
+        return this._channels[name];
+    }
+
+    public play(channel: string | null, items: SequenceHandler[]): Promise<void> {
+        return this._getChannel(channel || '<default>').play(items);
+    }
+
+    public extend(channel: string | null, items: SequenceHandler[]): Promise<void> {
+        return this._getChannel(channel || '<default>').extend(items);
+    }
+
+    public stop(): void {
+        for (const k in this._channels) {
+            this._channels[k].stop();
+        }
+    }
+
+    public pause(): void {
+        for (const k in this._channels) {
+            this._channels[k].pause();
+        }
+    }
+
+    public resume(): void {
+        for (const k in this._channels) {
+            this._channels[k].resume();
+        }
+    }
+
+    public reset(): void {
+        for (const k in this._channels) {
+            this._channels[k].reset();
+        }
+    }
+
+    public update(dt: number): void {
+        for (const k in this._channels) {
+            this._channels[k].update(dt);
+        }
+    }
+
+    public get loop(): boolean {
+        return this._loop;
+    }
+
+    public set loop(v: boolean) {
+        this._loop = v;
+        for (const k in this._channels) {
+            this._channels[k].loop = v;
+        }
+    }
+
+    public get isPlaying(): boolean {
+        return Object.values(this._channels).some(c => c.isPlaying);
+    }
+}
+
+export function wrapSequencer(seq: Sequencer): SequenceHandler {
+    return {
+        enter() {
+            seq.update(0);
+        },
+        update(args) {
+            seq.update(args.dt);
+            return !seq.isPlaying;
+        },
+        exit() {
+            seq.stop();
+        }
+    };
 }

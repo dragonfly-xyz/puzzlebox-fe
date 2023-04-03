@@ -22,7 +22,6 @@
     import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass';
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
     import { createEventDispatcher } from 'svelte';
-    import type { Sequencer } from './sequencer';
     import _ from 'underscore';
     import { Animator } from './animator';
     import { TORCH_SELECTOR } from './scoring';
@@ -44,7 +43,6 @@
         camera: Camera;
         puzzleBox: Group;
         animator: Animator;
-        mainSequencer: Sequencer;
         cameraControl: OrbitControls;
         renderer: WebGLRenderer;
         composer: EffectComposer;
@@ -104,7 +102,6 @@
             puzzleBox,
             renderer,
             composer,
-            mainSequencer: animator.getSequencer('__main__'),
         };
         el?.insertBefore(renderer.domElement, el?.firstChild);
         const render = () => {
@@ -112,7 +109,7 @@
             requestAnimationFrame(render);
         }
         render();
-        renderContext.mainSequencer.play([animator.animateOperateChallenge()]);
+        animator.animateOperateChallenge();
     });
 
     // $: (async () => {

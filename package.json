@@ -26,6 +26,7 @@
 		"@replit/codemirror-lang-solidity": "^6.0.1",
 		"@types/three": "^0.149.0",
 		"@types/underscore": "^1.11.4",
+		"color-blend": "^4.0.0",
 		"esbuild": "^0.17.14",
 		"ganache": "^7.7.7",
 		"seamless-scroll-polyfill": "^2.3.4",
