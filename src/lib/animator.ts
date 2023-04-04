@@ -251,7 +251,7 @@ export class Animator {
         }
     }
 
-    private _animateAutoRotate(cooldown: number = 5, speed: number = 18): void {
+    private _animateAutoRotate(cooldown: number = 3, speed: number = 18): void {
         const cameraControl = this._cameraControl;
         const camera = cameraControl.object;
         this._sequencer.getChannel('auto-rotate').then(
@@ -326,7 +326,10 @@ export class Animator {
     }
 
     public animateOperateChallenge(): Promise<boolean> {
-        return this._sequencer.then(
+        return this._sequencer
+            .then(
+                this._createCameraSequence([0.55, -0.58, -0.60]),
+            ).then(
                 this._createTopRippleSequence(DRAGONFLY_PATTERN),
             ).then(
                 new SequenceAction({
@@ -365,39 +368,49 @@ export class Animator {
         );
     }
 
-    // public animateCamera(
-    //     endLookDir_: [number, number, number],
-    //     duration: number = 0.5,
-    // ): Promise<void> {
-    //     const camera = this._cameraControl.object;
-    //     const origin = this._cameraControl.target.clone();
-    //     const dist = this._cameraControl.getDistance();
-    //     const endLookDir = new Vector3(...endLookDir_).normalize();
-    //     return this._sequencer.play(
-    //         'main',
-    //         [{
-    //             update: ({ runningTime }) => {
-    //                 const toOrigin = origin.clone().sub(camera.position);
-    //                 const lookDir = toOrigin.clone().divideScalar(dist);
-    //                 if (1 - Math.abs(lookDir.dot(endLookDir)) < 1e-7) {
-    //                     return true;
-    //                 }
-    //                 const t = runningTime == 0 ? 0 : Math.min(1, runningTime / duration);
-    //                 const r = new Quaternion().slerp(
-    //                     new Quaternion().setFromUnitVectors(lookDir, endLookDir),
-    //                     t,
-    //                 );
-    //                 const newLookDir = lookDir.clone().applyQuaternion(r);
-    //                 const newToOrigin = newLookDir.clone().multiplyScalar(dist);
-    //                 camera.applyMatrix4(
-    //                     new Matrix4().makeTranslation(...(toOrigin.clone().sub(newToOrigin).toArray()))
-    //                 );
-    //                 this._cameraControl.update();
-    //                 return runningTime >= duration;
-    //             },
-    //         }],
-    //     );
-    // }
+    public animateCamera(
+        endLookDir_: [number, number, number],
+        duration: number = 0.5,
+    ): Promise<boolean> {
+        return this._sequencer
+            .then(this._createCameraSequence(endLookDir_, duration))
+            .play();
+    }
+
+    private _createCameraSequence(
+        endLookDir_: [number, number, number],
+        duration: number = 0.5,
+    ): ISequence {
+        const camera = this._cameraControl.object;
+        const origin = this._cameraControl.target.clone();
+        const dist = this._cameraControl.getDistance();
+        const endLookDir = new Vector3(...endLookDir_).normalize();
+        const xz = new Vector3(1,1,0).normalize();
+        return new SequenceAction(
+            {
+                update: ({ runningTime }) => {
+                    const toOrigin = origin.clone().sub(camera.position);
+                    const lookDir = toOrigin.clone().divideScalar(dist);
+                    if (1 - Math.abs(lookDir.dot(endLookDir)) < 1e-7) {
+                        return true;
+                    }
+                    const t = runningTime == 0 ? 0 : Math.min(1, runningTime / duration);
+                    // TODO: restrict to y then xz rotation.
+                    const r = new Quaternion().slerp(
+                        new Quaternion().setFromUnitVectors(lookDir, endLookDir),
+                        t,
+                    );
+                    const newLookDir = lookDir.clone().applyQuaternion(r);
+                    const newToOrigin = newLookDir.clone().multiplyScalar(dist);
+                    camera.applyMatrix4(
+                        new Matrix4().makeTranslation(...(toOrigin.clone().sub(newToOrigin).toArray()))
+                    );
+                    this._cameraControl.update();
+                    return runningTime >= duration;
+                },
+            },
+        );
+    }
     
     // public animateRattleBox(): SequenceHandler {
     //     const action = this._getSharedAnimationAction('rattle', null, { timeScale: 1.25 });

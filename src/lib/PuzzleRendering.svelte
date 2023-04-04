@@ -86,7 +86,7 @@
         const composer = new EffectComposer(renderer);
         renderer.toneMapping = LinearToneMapping;
         renderer.toneMappingExposure = 0.85;
-        composer.addPass(new RenderPixelatedPass(3, scene, camera, { depthEdgeStrength: 0.15, normalEdgeStrength: 0.001 }));
+        composer.addPass(new RenderPixelatedPass(2.5, scene, camera, { depthEdgeStrength: 0.15, normalEdgeStrength: 0.001 }));
         const animator = new Animator({
             scene,
             cameraControl,
