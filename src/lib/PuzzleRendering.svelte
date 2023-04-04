@@ -111,7 +111,7 @@
             }
         }
         render();
-        setTimeout(() => animator.animateOperateChallenge(), 5000);
+        setTimeout(() => { animator.animateOperateChallenge(); animator.animateUnlockTorchChallenge(); }, 1000);
     });
 
     onDestroy(() => {

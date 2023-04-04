@@ -171,7 +171,7 @@ export class Animator {
         const clip = this._clipsByName[clipName];
         opts = {
             loop: false,
-            clamp: false,
+            clamp: true,
             timeScale: 1.0,
             blendMode: 'normal',
             ...opts,
@@ -375,6 +375,32 @@ export class Animator {
         return this._sequencer
             .then(this._createCameraSequence(endLookDir_, duration))
             .play();
+    }
+
+    public animateUnlockTorchChallenge(): Promise<boolean> {
+        const glow = this._getMeshByName('torch-glow');
+        const mixer = this._getMixer(this._getObjectByName('torch-panel'));
+        const action = this._createAnimationAction(
+            mixer,
+            'torch-unlock',
+            {  clamp: true },
+        );
+        const duration = action.timeScale * action.getClip().duration;
+        return this._sequencer
+            .then(new SequenceAction({
+                enter() {
+                    glow.visible = true;
+                    (glow.material as MeshStandardMaterial).opacity = 0;
+                    action.play();
+                },
+                update({dt, runningTime}) {
+                    mixer.update(dt);
+                    (glow.material as MeshStandardMaterial).opacity =
+                        Math.min(1, runningTime / duration);
+                    return !action.isRunning();
+                },
+            })
+        ).play();
     }
 
     private _createCameraSequence(
