@@ -1,4 +1,4 @@
-import { MultiSequencer, Sequencer, wrapSequencer, type SequenceHandler } from './sequencer';
+import { MultiSequencer, Sequence, SequenceAction, type ISequence, type SequenceHandler } from './sequencer';
 import {
     AnimationClip,
     AnimationMixer,
@@ -49,6 +49,13 @@ const DRAGONFLY_PATTERN = [
     0, 0, 0, 1, 0, 0, 0,
 ];
 
+const COLORS = {
+    INITIAL_DARK: new Color('#100000'),
+    INITIAL_LIGHT: new Color('#990000'),
+    OPERATE_DARK: new Color('#001700'),
+    OPERATE_LIGHT: new Color('#11ff88'),
+};
+
 function isMesh(o: Object3D): o is Mesh {
     return o.type === 'Mesh';
 }
@@ -74,6 +81,7 @@ export class Animator {
     private readonly _materialsByName: Record<string, MeshStandardMaterial>;
     private readonly _puzzleBox: Group;
     private readonly _sequencer: MultiSequencer = new MultiSequencer();
+    private _lastInteractTime = 0;
     
     public constructor(opts: AnimatorOpts) {
         this._cameraControl = opts.cameraControl;
@@ -116,6 +124,12 @@ export class Animator {
             }
             o.userData = data;
         }
+        this._cameraControl.addEventListener('start', () => {
+            this._lastInteractTime = Infinity;
+        });
+        this._cameraControl.addEventListener('end', () => {
+            this._lastInteractTime = Date.now() / 1e3;
+        });
     }
 
     private _getMeshByName(name: string): Mesh {
@@ -146,13 +160,20 @@ export class Animator {
     private _createAnimationAction(
         mixer: AnimationMixer,
         clipName: string,
-        opts?: Partial<{ loop: 'loop' | 'bounce' | false; clamp: boolean; timeScale: number; root: Object3D }>,
+        opts?: Partial<{
+            loop: 'loop' | 'bounce' | false;
+            clamp: boolean;
+            timeScale: number;
+            root: Object3D;
+            blendMode: 'normal' | 'additive';
+        }>,
     ): AnimationAction {
         const clip = this._clipsByName[clipName];
         opts = {
             loop: false,
             clamp: false,
             timeScale: 1.0,
+            blendMode: 'normal',
             ...opts,
         };
         let action = mixer.existingAction(clip, opts.root);
@@ -168,6 +189,7 @@ export class Animator {
         }
         action.clampWhenFinished = !!opts.clamp;
         action.timeScale = opts.timeScale === undefined ? 1.0 : opts.timeScale;
+        action.blendMode = opts.blendMode === 'normal' ? 2500 : 2501;
         return action;
     }
 
@@ -188,7 +210,8 @@ export class Animator {
     }
 
     public reset() {
-        this._sequencer.stop();
+        this._sequencer.abort();
+        this._setCoreColor(COLORS.INITIAL_DARK, COLORS.INITIAL_LIGHT);
         this._animateAutoRotate();
         this._animateIdleBoxGlow();
         
@@ -228,38 +251,31 @@ export class Animator {
         }
     }
 
-    private _animateAutoRotate(cooldown: number = 5, speed: number = 18): Promise<void> {
+    private _animateAutoRotate(cooldown: number = 5, speed: number = 18): void {
         const cameraControl = this._cameraControl;
         const camera = cameraControl.object;
-        let autoRotateCooldown = 0;
-        this._cameraControl.addEventListener('start', () => {
-            autoRotateCooldown = Infinity;
-        });
-        this._cameraControl.addEventListener('end', () => {
-            autoRotateCooldown = cooldown;
-        });
-        return this._sequencer.play('auto-rotate',
-            [{
-            update({ dt }) {
-                if (autoRotateCooldown <= 0) {
-                    const r = degToRad(speed * dt);
-                    camera.applyMatrix4(
-                        new Matrix4().makeTranslation(
-                            ...cameraControl.target.clone().negate().toArray(),
-                        ).multiply(
-                            new Matrix4().makeRotationFromEuler(new Euler(0, r, 0)),
-                        ).multiply(
+        this._sequencer.getChannel('auto-rotate').then(
+            new SequenceAction({
+                update: ({ dt }) => {
+                    const timeSinceInteract = Date.now() / 1e3 - this._lastInteractTime;
+                    if (timeSinceInteract >= cooldown) {
+                        const r = degToRad(speed * dt);
+                        camera.applyMatrix4(
                             new Matrix4().makeTranslation(
-                                ...cameraControl.target.toArray(),
+                                ...cameraControl.target.clone().negate().toArray(),
+                            ).multiply(
+                                new Matrix4().makeRotationFromEuler(new Euler(0, r, 0)),
+                            ).multiply(
+                                new Matrix4().makeTranslation(
+                                    ...cameraControl.target.toArray(),
+                                ),
                             ),
-                        ),
-                    );
-                }
-                autoRotateCooldown -= dt;
-                return false;
-            }
-            }],
-        );
+                        );
+                    }
+                    return false;
+                },
+            }),
+        ).play();
     }
 
     private _setCoreColor(darkColor: Color, lightColor: Color) {
@@ -278,22 +294,21 @@ export class Animator {
         }
     }
 
-    private _animateIdleBoxGlow(): Promise<void> {
+    private _animateIdleBoxGlow(): void {
         const mixer = this._getMixer(this._getObjectByName('light-leak'));
         const action = this._createAnimationAction(
             mixer,
             'light-leak-idle',
-            { loop: 'bounce' },
+            { loop: 'bounce', blendMode: 'additive' },
         );
         action.weight = 0.35;
         action.timeScale = 0.75;
         const glowMat = this._getMeshByName('light-leak').material as MeshStandardMaterial;
         let initialOpacity = 1;
-        return this._sequencer.play('box-glow',
-            [{
-                enter: () => {
+        this._sequencer.getChannel('box-glow').then(
+            new SequenceAction({
+                enter() {
                     action.play();
-                    this._setCoreColor(new Color('#100000'), new Color('#990000'));
                     initialOpacity = glowMat.opacity = 0.75;
                 },
                 update({ dt, runningTime }) {
@@ -306,94 +321,95 @@ export class Animator {
                     mixer.stopAllAction();
                     glowMat.opacity = initialOpacity;
                 }
-            }],
-        );
+            }),
+        ).play();
     }
 
-    public animateOperateChallenge(): Promise<void> {
-        this._animateTopRipple(DRAGONFLY_PATTERN);
-        this.animateFlash();
-        let startColors = [new Color('#100000'), new Color('#990000')];
-        let endColors = [new Color('#001700'), new Color('#11ff88')];
-        return this._sequencer.extend(
-            'main',
-            [{
-                update: ({ runningTime }) => {
-                    const t = Math.min(1, runningTime / 1.0);
-                    this._setCoreColor(...startColors.map((c, i) => c.clone().lerp(endColors[i], t)) as [Color, Color]);
-                    return t >= 1;
-                },
-            }],
-        );
+    public animateOperateChallenge(): Promise<boolean> {
+        return this._sequencer.then(
+                this._createTopRippleSequence(DRAGONFLY_PATTERN),
+            ).then(
+                new SequenceAction({
+                    update: ({ runningTime }) => {
+                        const t = Math.min(1, runningTime / 1.0);
+                        this._setCoreColor(
+                            COLORS.INITIAL_DARK.clone().lerp(COLORS.OPERATE_DARK, t),
+                            COLORS.INITIAL_LIGHT.clone().lerp(COLORS.OPERATE_LIGHT, t),
+                        );
+                        return t >= 1;
+                    },
+                }),
+                this._createFlashSequence(),
+        ).play();
     }
 
-    public animateFlash(): Promise<void> {
+    private _createFlashSequence(): ISequence {
         const light = this._getMeshByName('light-leak');
-        const maxScale = new Vector3(1.15, 1.15, 1.15);
-        let initialScale: Vector3;
-        return this._sequencer.play(
-            'flash',
-            [{
+        const mixer = this._getMixer(light);
+        const action = this._createAnimationAction(
+            mixer,
+            'light-leak-expand', {blendMode: 'additive'},
+        );
+        return new SequenceAction({
                 enter() {
-                    initialScale = light.scale.clone();
+                    action.play();
                 },
-                update: ({ runningTime }) => {
-                    const t = Math.min(1, runningTime / 0.5);
-                    light.scale.copy(initialScale).lerp(maxScale, Math.sin(t * Math.PI));
-                    console.log(initialScale, maxScale, t);
-                    return t >= 1;
+                update: ({ dt }) => {
+                    // TODO: double update
+                    // mixer.update(dt);
+                    return !action.isRunning();
                 },
-            }],
+            },
         );
     }
 
-    public animateCamera(
-        endLookDir_: [number, number, number],
-        duration: number = 0.5,
-    ): Promise<void> {
-        const camera = this._cameraControl.object;
-        const origin = this._cameraControl.target.clone();
-        const dist = this._cameraControl.getDistance();
-        const endLookDir = new Vector3(...endLookDir_).normalize();
-        return this._sequencer.play(
-            'main',
-            [{
-                update: ({ runningTime }) => {
-                    const toOrigin = origin.clone().sub(camera.position);
-                    const lookDir = toOrigin.clone().divideScalar(dist);
-                    if (1 - Math.abs(lookDir.dot(endLookDir)) < 1e-7) {
-                        return true;
-                    }
-                    const t = runningTime == 0 ? 0 : Math.min(1, runningTime / duration);
-                    const r = new Quaternion().slerp(
-                        new Quaternion().setFromUnitVectors(lookDir, endLookDir),
-                        t,
-                    );
-                    const newLookDir = lookDir.clone().applyQuaternion(r);
-                    const newToOrigin = newLookDir.clone().multiplyScalar(dist);
-                    camera.applyMatrix4(
-                        new Matrix4().makeTranslation(...(toOrigin.clone().sub(newToOrigin).toArray()))
-                    );
-                    this._cameraControl.update();
-                    return runningTime >= duration;
-                },
-            }],
-        );
-    }
+    // public animateCamera(
+    //     endLookDir_: [number, number, number],
+    //     duration: number = 0.5,
+    // ): Promise<void> {
+    //     const camera = this._cameraControl.object;
+    //     const origin = this._cameraControl.target.clone();
+    //     const dist = this._cameraControl.getDistance();
+    //     const endLookDir = new Vector3(...endLookDir_).normalize();
+    //     return this._sequencer.play(
+    //         'main',
+    //         [{
+    //             update: ({ runningTime }) => {
+    //                 const toOrigin = origin.clone().sub(camera.position);
+    //                 const lookDir = toOrigin.clone().divideScalar(dist);
+    //                 if (1 - Math.abs(lookDir.dot(endLookDir)) < 1e-7) {
+    //                     return true;
+    //                 }
+    //                 const t = runningTime == 0 ? 0 : Math.min(1, runningTime / duration);
+    //                 const r = new Quaternion().slerp(
+    //                     new Quaternion().setFromUnitVectors(lookDir, endLookDir),
+    //                     t,
+    //                 );
+    //                 const newLookDir = lookDir.clone().applyQuaternion(r);
+    //                 const newToOrigin = newLookDir.clone().multiplyScalar(dist);
+    //                 camera.applyMatrix4(
+    //                     new Matrix4().makeTranslation(...(toOrigin.clone().sub(newToOrigin).toArray()))
+    //                 );
+    //                 this._cameraControl.update();
+    //                 return runningTime >= duration;
+    //             },
+    //         }],
+    //     );
+    // }
     
-    public animateRattleBox(): SequenceHandler {
-        const action = this._getSharedAnimationAction('rattle', null, { timeScale: 1.25 });
-        return {
-            enter() { action.stop(); action.play(); },
-            update() { return !action.isRunning(); },
-        };
-    }
+    // public animateRattleBox(): SequenceHandler {
+    //     const action = this._getSharedAnimationAction('rattle', null, { timeScale: 1.25 });
+    //     return {
+    //         enter() { action.stop(); action.play(); },
+    //         update() { return !action.isRunning(); },
+    //     };
+    // }
 
-    public animateOpenChallenge(): SequenceHandler {
-        return this._animateTopRipple(DRAGONFLY_PATTERN);
-    }
+    // public animateOpenChallenge(): Promise<boolean> {
+    //     return this._createTopRippleSequence(DRAGONFLY_PATTERN);
+    // }
 
-    private _animateTopRipple(design: number[]): Promise<void> {
+    private _createTopRippleSequence(design: number[]): ISequence {
         const root = this._getObjectByName('top-panel');
         const cells = root.children.map(c => c as Group);
         const rippleDuration = 1.25;
@@ -415,8 +431,8 @@ export class Animator {
                 }
             }
         }
-        return this._sequencer.play('top-ripple',
-            [{
+        return new SequenceAction(
+            {
                 update: ({ dt, runningTime }) => {
                     for (const m of mixers) {
                         m.update(dt);
@@ -428,137 +444,135 @@ export class Animator {
                     }
                     return t >= 1 && actions.every(a => !a.isRunning());
                 },
-            }],
+            },
         );
     }
 
-    public animateDripChallenge(dripIds: number[]): SequenceHandler {
-        const actions = dripIds.map(id => this._getSharedAnimationAction(
-            `drip.00${id - 1}`,
-            null,
-            { clamp: true, timeScale: 0.5 },
-        ));
-        return {
-            enter() {
-                for (const a of actions) {
-                    a.stop();
-                    a.play();
-                }
-            },
-            update() { return actions.every(a => !a.isRunning()); },
-        };
-    }
+    // public animateDripChallenge(dripIds: number[]): SequenceHandler {
+    //     const actions = dripIds.map(id => this._getSharedAnimationAction(
+    //         `drip.00${id - 1}`,
+    //         null,
+    //         { clamp: true, timeScale: 0.5 },
+    //     ));
+    //     return {
+    //         enter() {
+    //             for (const a of actions) {
+    //                 a.stop();
+    //                 a.play();
+    //             }
+    //         },
+    //         update() { return actions.every(a => !a.isRunning()); },
+    //     };
+    // }
 
-    public animateBurnChallenge(dripId: number): SequenceHandler {
-        const burnEffectAction = this._getSharedAnimationAction('burn-effect', null, { timeScale: 1.5 });
-        const dripTokenAction = this._getSharedAnimationAction(`drip.00${dripId - 1}`);
-        const burnTokenAction = this._getSharedAnimationAction(`burn.00${dripId - 1}`, null, { timeScale: 1.5 });
-        let burnTokenActionCompleted = false;
-        return {
-            enter() {
-                dripTokenAction.stop();
-                burnTokenAction.stop();
-                burnTokenAction.play();
-            },
-            update() {
-                if (!burnTokenAction.isRunning()) {
-                    if (!burnTokenActionCompleted) {
-                        burnTokenActionCompleted = true;
-                        burnEffectAction.stop();
-                        burnEffectAction.play();
-                    }
-                    return !burnEffectAction.isRunning();
-                }
-                return false;
-            },
-        };
-    }
+    // public animateBurnChallenge(dripId: number): SequenceHandler {
+    //     const burnEffectAction = this._getSharedAnimationAction('burn-effect', null, { timeScale: 1.5 });
+    //     const dripTokenAction = this._getSharedAnimationAction(`drip.00${dripId - 1}`);
+    //     const burnTokenAction = this._getSharedAnimationAction(`burn.00${dripId - 1}`, null, { timeScale: 1.5 });
+    //     let burnTokenActionCompleted = false;
+    //     return {
+    //         enter() {
+    //             dripTokenAction.stop();
+    //             burnTokenAction.stop();
+    //             burnTokenAction.play();
+    //         },
+    //         update() {
+    //             if (!burnTokenAction.isRunning()) {
+    //                 if (!burnTokenActionCompleted) {
+    //                     burnTokenActionCompleted = true;
+    //                     burnEffectAction.stop();
+    //                     burnEffectAction.play();
+    //                 }
+    //                 return !burnEffectAction.isRunning();
+    //             }
+    //             return false;
+    //         },
+    //     };
+    // }
 
-    public animateLockChallenge(): SequenceHandler {
-        const torchUnlockAction = this._getSharedAnimationAction(
-            'torch-unlock',
-            null,
-            { clamp: true },
-        );
-        return {
-            enter() {
-                torchUnlockAction.stop();
-                torchUnlockAction.play();
-            },
-            update() {
-                return !torchUnlockAction.isRunning();
-            },
-        };
-    }
+    // public animateLockChallenge(): SequenceHandler {
+    //     const torchUnlockAction = this._getSharedAnimationAction(
+    //         'torch-unlock',
+    //         null,
+    //         { clamp: true },
+    //     );
+    //     return {
+    //         enter() {
+    //             torchUnlockAction.stop();
+    //             torchUnlockAction.play();
+    //         },
+    //         update() {
+    //             return !torchUnlockAction.isRunning();
+    //         },
+    //     };
+    // }
 
-    public animateTorchChallenge(duration=2.0): SequenceHandler {
-        const fire = this._getMeshByName('torch-fire');
-        const glow = this._getMeshByName('torch-glow');
-        const actions = TORCH_FIRE_ANIMATIONS.map(n => this._getSharedAnimationAction(n, null, { loop: true }));
-        return {
-            enter() {
-                fire.visible = true;
-                glow.visible = true;
-                for (const a of actions) {
-                    a.stop();
-                    a.play();
-                }
-            },
-            update({ runningTime }) {
-                return runningTime >= duration;
-            }
-        };
-    }
+    // public animateTorchChallenge(duration=2.0): SequenceHandler {
+    //     const fire = this._getMeshByName('torch-fire');
+    //     const glow = this._getMeshByName('torch-glow');
+    //     const actions = TORCH_FIRE_ANIMATIONS.map(n => this._getSharedAnimationAction(n, null, { loop: true }));
+    //     return {
+    //         enter() {
+    //             fire.visible = true;
+    //             glow.visible = true;
+    //             for (const a of actions) {
+    //                 a.stop();
+    //                 a.play();
+    //             }
+    //         },
+    //         update({ runningTime }) {
+    //             return runningTime >= duration;
+    //         }
+    //     };
+    // }
 
-    public animateTakeFees(fees: number): SequenceHandler {
-        const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
-        let maxCoinIdx = 0;
-        {
-            let x = fees;
-            for (let d = 100; d < MAX_FEES && fees / d >= 1; d *= 2, ++maxCoinIdx) ;
-            maxCoinIdx = Math.floor(Math.min(1, maxCoinIdx / MAX_DRIP_TOKENS) * coins.length);
-        }
-        const animatedCoins = coins.slice(0, maxCoinIdx);
-        const actions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-in', c, { clamp: true }));
-        return {
-            update({ runningTime }) {
-                let i = Math.floor(runningTime / COIN_FLIP_DELAY);
-                if (i < actions.length && !actions[i].isRunning()) {
-                    actions[i].stop().play();
-                }
-                return i >= actions.length && actions.every(a => !a.isRunning());
-            },
-        };
-    }
+    // public animateTakeFees(fees: number): SequenceHandler {
+    //     const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
+    //     let maxCoinIdx = 0;
+    //     {
+    //         let x = fees;
+    //         for (let d = 100; d < MAX_FEES && fees / d >= 1; d *= 2, ++maxCoinIdx) ;
+    //         maxCoinIdx = Math.floor(Math.min(1, maxCoinIdx / MAX_DRIP_TOKENS) * coins.length);
+    //     }
+    //     const animatedCoins = coins.slice(0, maxCoinIdx);
+    //     const actions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-in', c, { clamp: true }));
+    //     return {
+    //         update({ runningTime }) {
+    //             let i = Math.floor(runningTime / COIN_FLIP_DELAY);
+    //             if (i < actions.length && !actions[i].isRunning()) {
+    //                 actions[i].stop().play();
+    //             }
+    //             return i >= actions.length && actions.every(a => !a.isRunning());
+    //         },
+    //     };
+    // }
 
-    public animateSpreadChallenge(spreadAmount: number, remaining: number): SequenceHandler {
-        const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
-        const maxCoinIdx = Math.ceil(Math.min(1, (spreadAmount + remaining) / MAX_SPREAD) * coins.length);
-        const minCoinIdx = Math.floor((remaining / MAX_SPREAD) * coins.length);
-        const animatedCoins = coins.slice(minCoinIdx, maxCoinIdx).reverse();
-        const inActions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-in', c));
-        const outActions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-out', c, { clamp: true }));
-        return {
-            update({ runningTime }) {
-                let i = Math.floor(runningTime / COIN_FLIP_DELAY);
-                if (i < outActions.length && !outActions[i].isRunning()) {
-                    inActions[i].stop();
-                    outActions[i].stop().play();
-                }
-                return i >= outActions.length && outActions.every(a => !a.isRunning());
-            },
-        };
-    }
+    // public animateSpreadChallenge(spreadAmount: number, remaining: number): SequenceHandler {
+    //     const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
+    //     const maxCoinIdx = Math.ceil(Math.min(1, (spreadAmount + remaining) / MAX_SPREAD) * coins.length);
+    //     const minCoinIdx = Math.floor((remaining / MAX_SPREAD) * coins.length);
+    //     const animatedCoins = coins.slice(minCoinIdx, maxCoinIdx).reverse();
+    //     const inActions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-in', c));
+    //     const outActions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-out', c, { clamp: true }));
+    //     return {
+    //         update({ runningTime }) {
+    //             let i = Math.floor(runningTime / COIN_FLIP_DELAY);
+    //             if (i < outActions.length && !outActions[i].isRunning()) {
+    //                 inActions[i].stop();
+    //                 outActions[i].stop().play();
+    //             }
+    //             return i >= outActions.length && outActions.every(a => !a.isRunning());
+    //         },
+    //     };
+    // }
 
-    public animateZipChallenge(duration: number = 1.5): SequenceHandler {
-        const action = this._getSharedAnimationAction('zip', null, { loop: true });
-        return {
-            enter() { action.stop().play(); },
-            update({runningTime}) {
-                return runningTime >= duration;
-            }
-        };
-    }
+    // public animateZipChallenge(duration: number = 1.5): SequenceHandler {
+    //     const action = this._getSharedAnimationAction('zip', null, { loop: true });
+    //     return {
+    //         enter() { action.stop().play(); },
+    //         update({runningTime}) {
+    //             return runningTime >= duration;
+    //         }
+    //     };
+    // }
 }
-
-const COIN_FLIP_DELAY = 0.1;

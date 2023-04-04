@@ -27,7 +27,7 @@
     import { TORCH_SELECTOR } from './scoring';
     import type { SimResultsWithScore } from './types';
     import { formatScore } from './util';
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
 
     const dispatch = createEventDispatcher();
     const DEFAULT_VIEW_ANGLE = [-0.60, -0.53, -0.6] as [number, number, number];
@@ -105,11 +105,20 @@
         };
         el?.insertBefore(renderer.domElement, el?.firstChild);
         const render = () => {
-            composer.render(animator!.update());
-            requestAnimationFrame(render);
+            if (renderContext?.renderer) {
+                composer.render(animator!.update());
+                requestAnimationFrame(render);
+            }
         }
         render();
         animator.animateOperateChallenge();
+    });
+
+    onDestroy(() => {
+        if (renderContext) {
+            renderContext.renderer.dispose();
+            renderContext = undefined;
+        }
     });
 
     // $: (async () => {
