@@ -111,7 +111,7 @@
             }
         }
         render();
-        animator.animateOperateChallenge();
+        setTimeout(() => animator.animateOperateChallenge(), 5000);
     });
 
     onDestroy(() => {

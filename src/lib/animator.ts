@@ -331,7 +331,7 @@ export class Animator {
             ).then(
                 new SequenceAction({
                     update: ({ runningTime }) => {
-                        const t = Math.min(1, runningTime / 1.0);
+                        const t = Math.min(1, runningTime / 0.25);
                         this._setCoreColor(
                             COLORS.INITIAL_DARK.clone().lerp(COLORS.OPERATE_DARK, t),
                             COLORS.INITIAL_LIGHT.clone().lerp(COLORS.OPERATE_LIGHT, t),
@@ -350,6 +350,8 @@ export class Animator {
             mixer,
             'light-leak-expand', {blendMode: 'additive'},
         );
+        action.weight = 0.5;
+        action.timeScale = 1.25;
         return new SequenceAction({
                 enter() {
                     action.play();
