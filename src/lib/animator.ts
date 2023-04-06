@@ -460,8 +460,7 @@ export class Animator {
                     return !action.isRunning();
                 },
             }),
-            this._createFlashSequence(),
-        ).play();
+        ).then(this._createFlashSequence()).play();
         return this;
     }
 
