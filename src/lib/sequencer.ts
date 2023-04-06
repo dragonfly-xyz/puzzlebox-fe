@@ -113,6 +113,7 @@ export class Sequence implements ISequence {
     private _hasStarted: boolean = false;
     private _resolve: ((err: any, completed: boolean) => void) | undefined;
     private _paused: boolean = false;
+    private _playPromise: Promise<boolean> | undefined;
 
     public then(...seqs: ISequence[]): this {
         this._graph.push(seqs);
@@ -127,12 +128,19 @@ export class Sequence implements ISequence {
         this._paused = false;
     }
 
+    public wait(): Promise<boolean> {
+        if (!this._playPromise) {
+            return Promise.resolve(true);
+        }
+        return this._playPromise;
+    }
+
     public play(): Promise<boolean> {
         if (this._hasStarted) {
             this.abort();
         }
         this._hasStarted = true;
-        return new Promise<boolean>((a, r) => {
+        return this._playPromise = new Promise<boolean>((a, r) => {
             this._resolve = (err, completed) => {
                 if (err) {
                     return r(err);
@@ -173,6 +181,7 @@ export class Sequence implements ISequence {
             this._hasStarted = false;
             const resolve = this._resolve!;
             this._resolve = undefined;
+            this._playPromise = undefined;
             const graph = this._graph.splice(0, this._graph.length);
             for (const n of graph) {
                 for (const seq of n) {

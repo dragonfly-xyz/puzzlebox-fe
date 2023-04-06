@@ -107,11 +107,23 @@
         const render = () => {
             if (renderContext?.renderer) {
                 composer.render(animator!.update());
-                requestAnimationFrame(render);
+                setTimeout(() => requestAnimationFrame(render), 25);
             }
         }
         render();
-        setTimeout(() => { animator.animateOperateChallenge(); animator.animateUnlockTorchChallenge(); }, 1000);
+        setTimeout(() => {
+            animator
+                .animateOperateChallenge()
+                .animateUnlockTorchChallenge()
+                .animateDripChallenge(0, [1,2,3,4,9,10,7])
+                .animateBurn(7, 0, [1,4])
+                .animateBurn(5, 2, [10,9,3])
+                .animateTakeFee(0, 400)
+                .animateTakeFee(400, 5000)
+                .animateSpreadChallenge(580)
+                .animateZipChallenge()
+                .animateTorchChallenge();
+            }, 1000);
     });
 
     onDestroy(() => {
