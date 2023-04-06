@@ -25,6 +25,20 @@
         font-family: 'Comic Mono';
         src: url('/ComicMono.ttf') format('truetype');
     }
+    @font-face {
+        font-family: 'Mondwest';
+        src: url('/Mondwest-Regular.ttf') format('truetype'); 
+    }
+
+    :root {
+        --background: white;
+        --primary: rgb(250,76,20);
+        --primary-hover: rgb(242,242,242);
+        --text-primary: black;
+        --text-secondary: rgb(242,242,242);
+        --accent: purple;
+    }
+
 
     header {
         font-family: 'Silkscreen', monospace;
@@ -48,8 +62,15 @@
         font-size: 0.66em;
     }
     .banner a {
-        color: inherit !important;
+        color: rbg(250,76,20) !important;
         text-decoration: none !important;
+    }
+    .subbanner {
+        font-size: 1em;
+    }
+    .subbanner .text{
+        font-family: 'Silkscreen', monospace;
+        text-shadow: none;
     }
     .quick-links {
         display: flex;
@@ -76,6 +97,7 @@
 
 <header>
     <div class="banner"><a class="text" href="/">Puzzlebox<span class="ext">.sol</span></a></div>
+    <div class="banner subbanner"><a class="text" href="https://www.dragonfly.xyz/">A CTF from Dragonfly</a></div>
     <div class="quick-links">
         <div><a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">github</a></div>
         <div><a href="https://twitter.com/merklejerk">support</a></div>
