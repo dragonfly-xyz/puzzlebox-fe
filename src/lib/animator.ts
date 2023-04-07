@@ -34,8 +34,6 @@ const TORCH_FIRE_ANIMATIONS = [
     'torch-light',
 ];
 
-const MAX_DRIP_TOKENS = 10;
-const MAX_SPREAD = 1000;
 const BLACK = new Color(0,0,0);
 
 function getTrueFeeAmount(scaled: number): number {
@@ -68,6 +66,8 @@ const COLORS = {
     INITIAL_LIGHT: new Color('#990000'),
     OPERATE_DARK: new Color('#001700'),
     OPERATE_LIGHT: new Color('#11ff88'),
+    OPEN_DARK: new Color('#022411'),
+    OPEN_LIGHT: new Color('#11ff88'),
     SPREAD_BAR_START_COLOR: new Color('#222'),
 };
 
@@ -102,6 +102,7 @@ export class Animator {
     private readonly _puzzleBox: Group;
     private readonly _sequencer: MultiSequencer = new MultiSequencer();
     private readonly _originalMaterials: Record<string, MeshStandardMaterial> = {};
+    private readonly _originalMaterialsByName: Record<string, MeshStandardMaterial> = {};
     private _lastInteractTime = 0;
     
     public constructor(opts: AnimatorOpts) {
@@ -115,11 +116,15 @@ export class Animator {
                     if (isMesh(o)) {
                         const mat = o.material as MeshStandardMaterial;
                         mat.userData.tags = parseTags(mat.userData.tags);
-                        mats.push({[mat.name]: mat.clone() });
+                        mats.push({ [mat.uuid]: mat.clone() });
                     }
                 }
                 return mats;
             })(),
+        );
+        this._originalMaterialsByName = Object.assign(
+            {},
+            ...Object.values(this._originalMaterials).map(m => ({ [m.name]: m })),
         );
         this._clipsByName = Object.assign(
             {},
@@ -139,8 +144,10 @@ export class Animator {
             const data = o.userData || {};
             data.tags = parseTags(data.tags || {});
             if (isMesh(o)) {
+                const mat = o.material as MeshStandardMaterial;
+                data['originalMaterial'] = mat.uuid;
                 if (data.tags['unique-mat']) {
-                    o.material = (o.material as Material).clone();
+                    o.material = mat.clone();
                 }
             }
             o.userData = data;
@@ -159,16 +166,6 @@ export class Animator {
 
     private _getObjectByName<T extends Object3D = Object3D>(name: string): T {
         return this._puzzleBox.getObjectByName(name) as T;
-    }
-
-    private _findObjects<T extends Object3D = Object3D>(filter: (o: Object3D) => boolean): T[] {
-        const items = [] as T[];
-        for (const o of this._allObjects()) {
-            if (filter(o)) {
-                items.push(o as T);
-            }
-        }
-        return items;
     }
 
     private _getMixer(root: Object3D = this._puzzleBox): AnimationMixer {
@@ -253,15 +250,14 @@ export class Animator {
 
     public reset() {
         this._sequencer.abort();
-        this._setCoreColor(COLORS.INITIAL_DARK, COLORS.INITIAL_LIGHT);
-        this._animateAutoRotate();
-        this._animateIdleBoxGlow();
         
         for (const o of this._allObjects()) {
             if (o.userData.tags?.['hidden']) {
                 o.visible = false;
             }
             if (isMesh(o)) {
+                const mat = o.material as Material;
+                o.material = this._originalMaterials[o.userData.originalMaterial].clone();
                 if (o.name.startsWith('spread-progress-glow')) {
                     (o.material as MeshStandardMaterial).opacity = 0;
                 } else if (o.name.startsWith('spread-progress')) {
@@ -269,6 +265,15 @@ export class Animator {
                 }
             }
         }
+
+        for (const mixer of Object.values(this._cachedMixerByRootName)) {
+            mixer.ambient = mixer.requestUpdate = false;
+            mixer.mixer.stopAllAction();
+        }
+    
+        this._setCoreColor(COLORS.INITIAL_DARK, COLORS.INITIAL_LIGHT);
+        this._animateAutoRotate();
+        this._animateIdleBoxGlow();
     }
 
     public wait(): Promise<boolean> {
@@ -288,20 +293,29 @@ export class Animator {
         }
     }
 
-    public animateReset(): SequenceHandler {
-        return {
+    public animateReset(): this {
+        this._sequencer.then(new SequenceAction({
             enter: () => {
                 this.reset();
             },
-        };
+            update() {
+                return true;
+            }
+        })).play();
+        return this;
     }
 
-    public animateWait(seconds: number): SequenceHandler {
-        return {
+    public animateWait(seconds: number): this {
+        this._sequencer.then(this._createWaitSequence(seconds)).play();
+        return this;
+    }
+
+    private _createWaitSequence(seconds: number): ISequence {
+        return new SequenceAction({
             update({ runningTime }) {
                 return runningTime >= seconds;
             }
-        }
+        });
     }
 
     private _animateAutoRotate(cooldown: number = 3, speed: number = 18): void {
@@ -390,32 +404,45 @@ export class Animator {
             ).then(
                 this._createTopRippleSequence(DRAGONFLY_PATTERN),
             ).then(
-                new SequenceAction({
-                    update: ({ runningTime }) => {
-                        const t = Math.min(1, runningTime / 0.25);
-                        this._setCoreColor(
-                            COLORS.INITIAL_DARK.clone().lerp(COLORS.OPERATE_DARK, t),
-                            COLORS.INITIAL_LIGHT.clone().lerp(COLORS.OPERATE_LIGHT, t),
-                        );
-                        return t >= 1;
-                    },
-                }),
+                this._createCoreColorSequence(
+                    COLORS.INITIAL_DARK, COLORS.OPERATE_DARK,    
+                    COLORS.INITIAL_LIGHT, COLORS.OPERATE_LIGHT,
+                ),
                 this._createFlashSequence(),
         ).play();
         return this;
     }
 
-    private _createFlashSequence(): ISequence {
+    private _createCoreColorSequence(
+        startDarkColor: Color,
+        endDarkColor: Color,
+        startLightColor: Color,
+        endLightColor: Color,
+        duration: number = 0.25,
+    ): ISequence {
+        return new SequenceAction({
+            update: ({ runningTime }) => {
+                const t = Math.min(1, runningTime / duration);
+                this._setCoreColor(
+                    startDarkColor.clone().lerp(endDarkColor, t),
+                    startLightColor.clone().lerp(endLightColor, t),
+                    );
+                return t >= 1;
+            },
+        });
+    }
+
+    private _createFlashSequence(weight: number = 0.5, timeScale: number = 1.25): ISequence {
         const light = this._getMeshByName('light-leak');
         const mixer = this._getMixer(light);
         const action = this._createAnimationAction(
             mixer,
             'light-leak-expand', {blendMode: 'additive'},
         );
-        action.weight = 0.5;
-        action.timeScale = 1.25;
         return new SequenceAction({
                 enter() {
+                    action.weight = weight;
+                    action.timeScale = timeScale;
                     action.stop(); action.play();
                 },
                 update: () => {
@@ -499,25 +526,13 @@ export class Animator {
             },
         );
     }
-    
-    // public animateRattleBox(): SequenceHandler {
-    //     const action = this._getSharedAnimationAction('rattle', null, { timeScale: 1.25 });
-    //     return {
-    //         enter() { action.stop(); action.play(); },
-    //         update() { return !action.isRunning(); },
-    //     };
-    // }
-
-    // public animateOpenChallenge(): Promise<boolean> {
-    //     return this._createTopRippleSequence(DRAGONFLY_PATTERN);
-    // }
 
     private _createTopRippleSequence(design: number[]): ISequence {
         const root = this._getObjectByName('top-panel');
         const cells = root.children.map(c => c as Group);
         const rippleDuration = 1.25;
-        const inactiveMat = this._originalMaterials['panel'] as Material;
-        const activeMat = this._originalMaterials['cube-active'] as Material;
+        const inactiveMat = this._originalMaterialsByName['panel'] as Material;
+        const activeMat = this._originalMaterialsByName['cube-active'] as Material;
         const mixers = cells.map(c => this._getMixer(c));
         const actions = cells.map((v, i) => this._createAnimationAction(
             mixers[i],
@@ -560,22 +575,24 @@ export class Animator {
                 this._getMeshMaterialByMeshName(`drip-path00${id - 1}`),
                 this._getMeshMaterialByMeshName(`drip-point00${id - 1}`),
         ]);
-        const dripGlowAction = this._createAnimationAction(
+        const dripPathGlowAction = this._createAnimationAction(
             this._getMixer(this._getMeshByName('drip-path-glow')),
             'drip-path-glow',
             { blendMode: 'additive' },
         );
-        const glowMaterial = this._getMeshMaterialByMeshName('drip-path-glow');
+        const pathGlowMaterial = this._getMeshMaterialByMeshName('drip-path-glow');
+        const origPathGlowMaterial =
+            this._originalMaterials[this._getMeshByName('drip-path-glow').userData.originalMaterial];
         const f1 = numOldDripIds / 10;
         const f2 = (numOldDripIds + newDripIds.length) / 10
         const initialGlowEmmisive: Color = new Color().lerpColors(
-            this._originalMaterials[glowMaterial.name].emissive,
-            this._originalMaterials[glowMaterial.name].emissive.clone().multiplyScalar(2),
+            origPathGlowMaterial.emissive,
+            origPathGlowMaterial.emissive.clone().multiplyScalar(2),
             f1,
         );
         const targetGlowEmissive: Color = new Color().lerpColors(
-            this._originalMaterials[glowMaterial.name].emissive,
-            this._originalMaterials[glowMaterial.name].emissive.clone().multiplyScalar(2),
+            origPathGlowMaterial.emissive,
+            origPathGlowMaterial.emissive.clone().multiplyScalar(2),
             f2,
         );
         this._sequencer
@@ -583,12 +600,12 @@ export class Animator {
             .then(new SequenceAction({
                 enter() {
                     if (numOldDripIds === 0) {
-                        dripGlowAction.weight = f2;
-                        dripGlowAction.play();
+                        dripPathGlowAction.weight = f2;
+                        dripPathGlowAction.play();
                     }
                 },
                 update: ({ runningTime }) => {
-                    this._touchMixer(dripGlowAction.getMixer());
+                    this._touchMixer(dripPathGlowAction.getMixer());
                     const t = Math.min(1, runningTime / duration);
                     for (const mats of dripIdMaterials) {
                         for (const mat of mats) {
@@ -596,9 +613,9 @@ export class Animator {
                         }
                     }
                     if (numOldDripIds !== 0) {
-                        dripGlowAction.weight = lerp(f1, f2, t);
+                        dripPathGlowAction.weight = lerp(f1, f2, t);
                     }
-                    glowMaterial.emissive.lerpColors(initialGlowEmmisive, targetGlowEmissive, t);
+                    pathGlowMaterial.emissive.lerpColors(initialGlowEmmisive, targetGlowEmissive, t);
                     return t >= 1;
                 },
             })).play();
@@ -616,29 +633,33 @@ export class Animator {
                 this._getMeshMaterialByMeshName(`drip-point00${id - 1}`),
         ]);
         const dripCenterMaterial = this._getMeshMaterialByMeshName('drip-center');
-        const dripGlowAction = this._createAnimationAction(
+        const dripPathGlowAction = this._createAnimationAction(
             this._getMixer(this._getMeshByName('drip-path-glow')),
             'drip-path-glow',
             { blendMode: 'additive' },
             );
         const dripCenterGlowAction = this._createAnimationAction(
-            dripGlowAction.getMixer(),
+            dripPathGlowAction.getMixer(),
             'drip-path-center-glow',
             { blendMode: 'additive' },
         );
-        const glowMaterial = this._getMeshMaterialByMeshName('drip-path-glow');
+        const pathGlowMaterial = this._getMeshMaterialByMeshName('drip-path-glow');
+        const origPathGlowMaterial =
+            this._originalMaterials[this._getMeshByName('drip-path-glow').userData.originalMaterial];
+        const centerGlow = this._getMeshByName('drip-center-glow');
+        const centerGlowMaterial = centerGlow.material as MeshStandardMaterial;
         const f1 = numOldDripIds / 10;
         const f2 = (numOldDripIds - burnDripIds.length) / 10
         const ff1 = oldTotalBurned / 10;
         const ff2 = (oldTotalBurned + burnDripIds.length) / 10;
         const initialGlowEmmisive: Color = new Color().lerpColors(
-            this._originalMaterials[glowMaterial.name].emissive,
-            this._originalMaterials[glowMaterial.name].emissive.clone().multiplyScalar(2),
+            origPathGlowMaterial.emissive,
+            origPathGlowMaterial.emissive.clone().multiplyScalar(2),
             f1,
         );
         const targetGlowEmissive: Color = new Color().lerpColors(
-            this._originalMaterials[glowMaterial.name].emissive,
-            this._originalMaterials[glowMaterial.name].emissive.clone().multiplyScalar(2),
+            origPathGlowMaterial.emissive,
+            origPathGlowMaterial.emissive.clone().multiplyScalar(2),
             ff2,
         );
         this._sequencer
@@ -649,13 +670,15 @@ export class Animator {
                         dripCenterGlowAction.weight = ff2;
                         dripCenterGlowAction.stop(); dripCenterGlowAction.play();
                     }
+                    centerGlow.visible = true;
+                    centerGlowMaterial.opacity = 0;
                 },
                 update: ({ runningTime }) => {
                     this._touchMixer(dripCenterGlowAction.getMixer());
                     const t = Math.min(1, runningTime / duration);
-                    glowMaterial.emissive.lerpColors(initialGlowEmmisive, targetGlowEmissive, t);
+                    pathGlowMaterial.emissive.lerpColors(initialGlowEmmisive, targetGlowEmissive, t);
                     dripCenterMaterial.opacity = lerp(ff1, ff2, t);
-                    dripGlowAction.weight = lerp(f1, f2, t);
+                    dripPathGlowAction.weight = lerp(f1, f2, t);
                     if (oldTotalBurned !== 0) {
                         dripCenterGlowAction.weight = lerp(ff1, ff2, t);
                     }
@@ -664,7 +687,11 @@ export class Animator {
                             mat.opacity = 1 - t;
                         }
                     }
+                    centerGlowMaterial.opacity = Math.sin(t * Math.PI) ** 4;
                     return t >= 1;
+                },
+                exit() {
+                    centerGlow.visible = false;
                 },
             })).play();
         return this;
@@ -675,7 +702,7 @@ export class Animator {
         const newRatio = Math.min(1, getTrueFeeAmount(prevFees + fees) / 999);
         const newBarsStart = Math.round(oldRatio * 12);
         const newBarsEnd = Math.round(newRatio * 12);
-        const targetEmissive = this._originalMaterials['spread-glow'].emissive;
+        const targetEmissive = this._originalMaterialsByName['spread-glow'].emissive;
         const newBarMaterials: MeshStandardMaterial[] = [];
         const newBarGlowMaterials: MeshStandardMaterial[] = [];
         for (let i = newBarsStart; i < newBarsEnd; ++i) {
@@ -805,114 +832,39 @@ export class Animator {
         return this;
     }
 
-    // public animateBurnChallenge(dripId: number): SequenceHandler {
-    //     const burnEffectAction = this._getSharedAnimationAction('burn-effect', null, { timeScale: 1.5 });
-    //     const dripTokenAction = this._getSharedAnimationAction(`drip.00${dripId - 1}`);
-    //     const burnTokenAction = this._getSharedAnimationAction(`burn.00${dripId - 1}`, null, { timeScale: 1.5 });
-    //     let burnTokenActionCompleted = false;
-    //     return {
-    //         enter() {
-    //             dripTokenAction.stop();
-    //             burnTokenAction.stop();
-    //             burnTokenAction.play();
-    //         },
-    //         update() {
-    //             if (!burnTokenAction.isRunning()) {
-    //                 if (!burnTokenActionCompleted) {
-    //                     burnTokenActionCompleted = true;
-    //                     burnEffectAction.stop();
-    //                     burnEffectAction.play();
-    //                 }
-    //                 return !burnEffectAction.isRunning();
-    //             }
-    //             return false;
-    //         },
-    //     };
-    // }
-
-    // public animateLockChallenge(): SequenceHandler {
-    //     const torchUnlockAction = this._getSharedAnimationAction(
-    //         'torch-unlock',
-    //         null,
-    //         { clamp: true },
-    //     );
-    //     return {
-    //         enter() {
-    //             torchUnlockAction.stop();
-    //             torchUnlockAction.play();
-    //         },
-    //         update() {
-    //             return !torchUnlockAction.isRunning();
-    //         },
-    //     };
-    // }
-
-    // public animateTorchChallenge(duration=2.0): SequenceHandler {
-    //     const fire = this._getMeshByName('torch-fire');
-    //     const glow = this._getMeshByName('torch-glow');
-    //     const actions = TORCH_FIRE_ANIMATIONS.map(n => this._getSharedAnimationAction(n, null, { loop: true }));
-    //     return {
-    //         enter() {
-    //             fire.visible = true;
-    //             glow.visible = true;
-    //             for (const a of actions) {
-    //                 a.stop();
-    //                 a.play();
-    //             }
-    //         },
-    //         update({ runningTime }) {
-    //             return runningTime >= duration;
-    //         }
-    //     };
-    // }
-
-    // public animateTakeFees(fees: number): SequenceHandler {
-    //     const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
-    //     let maxCoinIdx = 0;
-    //     {
-    //         let x = fees;
-    //         for (let d = 100; d < MAX_FEES && fees / d >= 1; d *= 2, ++maxCoinIdx) ;
-    //         maxCoinIdx = Math.floor(Math.min(1, maxCoinIdx / MAX_DRIP_TOKENS) * coins.length);
-    //     }
-    //     const animatedCoins = coins.slice(0, maxCoinIdx);
-    //     const actions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-in', c, { clamp: true }));
-    //     return {
-    //         update({ runningTime }) {
-    //             let i = Math.floor(runningTime / COIN_FLIP_DELAY);
-    //             if (i < actions.length && !actions[i].isRunning()) {
-    //                 actions[i].stop().play();
-    //             }
-    //             return i >= actions.length && actions.every(a => !a.isRunning());
-    //         },
-    //     };
-    // }
-
-    // public animateSpreadChallenge(spreadAmount: number, remaining: number): SequenceHandler {
-    //     const coins = this._findObjects((o) => /^coin\d{3}$/.test(o.name));
-    //     const maxCoinIdx = Math.ceil(Math.min(1, (spreadAmount + remaining) / MAX_SPREAD) * coins.length);
-    //     const minCoinIdx = Math.floor((remaining / MAX_SPREAD) * coins.length);
-    //     const animatedCoins = coins.slice(minCoinIdx, maxCoinIdx).reverse();
-    //     const inActions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-in', c));
-    //     const outActions = animatedCoins.map(c => this._getSharedAnimationAction('.coin-flip-out', c, { clamp: true }));
-    //     return {
-    //         update({ runningTime }) {
-    //             let i = Math.floor(runningTime / COIN_FLIP_DELAY);
-    //             if (i < outActions.length && !outActions[i].isRunning()) {
-    //                 inActions[i].stop();
-    //                 outActions[i].stop().play();
-    //             }
-    //             return i >= outActions.length && outActions.every(a => !a.isRunning());
-    //         },
-    //     };
-    // }
-
-    // public animateZipChallenge(duration: number = 1.5): SequenceHandler {
-    //     const action = this._getSharedAnimationAction('zip', null, { loop: true });
-    //     return {
-    //         enter() { action.stop().play(); },
-    //         update({runningTime}) {
-    //             return runningTime >= duration;
-    //         }
-    //     };
-    // }
+    public animateOpenChallenge(): this {
+        const mixer = this._getMixer(this._puzzleBox);
+        const openAction = this._createAnimationAction(
+            mixer,
+            'open',
+            { clamp: true },
+        );
+        const idleAction = this._createAnimationAction(
+            mixer,
+            'open-idle',
+            { loop: 'loop', blendMode: 'additive' },
+        );
+        this._sequencer
+            .then(new SequenceAction({
+                enter: () => {
+                    openAction.stop(); openAction.play();
+                },
+                update: () => {
+                    this._lastInteractTime = Date.now() / 1e3;
+                    this._touchMixer(mixer);
+                    return !openAction.isRunning();
+                },
+                exit: () => {
+                    this._touchMixer(mixer, true);
+                    idleAction.stop(); idleAction.play();
+                },
+            }),
+            this._createCoreColorSequence(
+                COLORS.OPERATE_DARK, COLORS.OPEN_DARK,    
+                COLORS.OPERATE_LIGHT, COLORS.OPEN_LIGHT,
+            ),
+            this._createFlashSequence(1.25, 0.5),
+        ).play();
+        return this;
+    }
 }

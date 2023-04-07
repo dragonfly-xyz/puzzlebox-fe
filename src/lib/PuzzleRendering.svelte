@@ -111,19 +111,26 @@
             }
         }
         render();
-        setTimeout(() => {
-            animator
+        setTimeout(async () => {
+            await animator
                 .animateOperateChallenge()
                 .animateUnlockTorchChallenge()
-                .animateDripChallenge(0, [1,2,3,4,9,10,7])
-                .animateBurn(7, 0, [1,4])
-                .animateBurn(5, 2, [10,9,3])
-                .animateTakeFee(0, 400)
-                .animateTakeFee(400, 5000)
-                .animateSpreadChallenge(580)
+                .animateTakeFee(0, 102300)
+                .animateDripChallenge(0, [1,2,3,4,5,6,7,8,9,10])
+                .animateBurn(10, 0, [3])
+                .animateSpreadChallenge(999)
+                .animateBurn(9, 1, [1])
                 .animateZipChallenge()
-                .animateTorchChallenge();
-            }, 1000);
+                .animateBurn(8, 2, [5])
+                .animateTorchChallenge()
+                .animateBurn(7, 3, [2,4,6,7,8,9])
+                .animateBurn(1, 9, [10])
+                .animateOpenChallenge()
+                .wait();
+            // await animator.animateReset().wait();
+            // await animator
+            //     .animateOperateChallenge().wait();
+            }, 5000);
     });
 
     onDestroy(() => {

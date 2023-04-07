@@ -6,12 +6,6 @@ export interface SequenceHandler {
     exit?(): void;
 }
 
-interface SequenceStep {
-    started: boolean;
-    runningTime: number;
-    handler: SequenceHandler;
-}
-
 export class AnimationAbortedError extends Error {
     constructor() {
         super('animation aborted');
@@ -139,6 +133,9 @@ export class Sequence implements ISequence {
         if (this._hasStarted) {
             this.abort();
         }
+        if (this._graph.length === 0) {
+            return Promise.resolve(true);
+        }
         this._hasStarted = true;
         return this._playPromise = new Promise<boolean>((a, r) => {
             this._resolve = (err, completed) => {
@@ -168,9 +165,12 @@ export class Sequence implements ISequence {
                 this._graph.shift();
             }
         }
-        if (this._graph.length === 0) {
+        if (this._graph.length === 0 && this._hasStarted) {
             this._hasStarted = false;
-            this._resolve!(null, true);
+            const resolve = this._resolve!;
+            this._resolve = undefined;
+            this._playPromise = undefined;
+            resolve!(null, true);
             return true;
         }
         return false;
@@ -192,7 +192,7 @@ export class Sequence implements ISequence {
         }
     }
 
-    public get isEmpty(): boolean {
+    public isEmpty(): boolean {
         return this._graph.length === 0;
     }
 
@@ -215,6 +215,8 @@ export class MultiSequencer {
             const ch = this._channels[k];
             if (!ch.isPlaying()) {
                 promises.push(this._channels[k].play());
+            } else {
+                promises.push(this._channels[k].wait());
             }
         }
         return Promise.all(promises).then(r => r.every(s => s));
