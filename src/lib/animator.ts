@@ -10,15 +10,15 @@ import {
     Scene,
     Vector3,
     Object3D,
-    Plane,
     type AnimationAction,
     Euler,
     MeshStandardMaterial,
-    MeshPhysicalMaterial,
     Color,
-    type ColorRepresentation,
+    Fog,
+    MeshBasicMaterial,
 } from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import type { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass';
 import { clamp, degToRad, lerp } from 'three/src/math/MathUtils';
 
 interface AnimatorOpts {
@@ -26,13 +26,8 @@ interface AnimatorOpts {
     puzzleBox: Group;
     cameraControl: OrbitControls;
     clips: AnimationClip[];
+    pixelPass: RenderPixelatedPass;
 }
-
-const TORCH_FIRE_ANIMATIONS = [
-    'torch-flame-inner',
-    'torch-flame-outer',
-    'torch-light',
-];
 
 const BLACK = new Color(0,0,0);
 
@@ -69,10 +64,16 @@ const COLORS = {
     OPEN_DARK: new Color('#022411'),
     OPEN_LIGHT: new Color('#11ff88'),
     SPREAD_BAR_START_COLOR: new Color('#222'),
+    OPEN_FOG_START: new Color('#022411'),
+    OPEN_FOG_END: new Color('#fc5203'),
 };
 
 function isMesh(o: Object3D): o is Mesh {
     return o.type === 'Mesh';
+}
+
+function isMeshStandardMaterial(mat: Material): mat is MeshStandardMaterial {
+    return (mat as MeshStandardMaterial).isMeshStandardMaterial;
 }
 
 function parseTags(raw: string | undefined | Record<string, boolean>): Record<string, boolean> {
@@ -101,20 +102,26 @@ export class Animator {
     private readonly _clipsByName: Record<string, AnimationClip>;
     private readonly _puzzleBox: Group;
     private readonly _sequencer: MultiSequencer = new MultiSequencer();
-    private readonly _originalMaterials: Record<string, MeshStandardMaterial> = {};
-    private readonly _originalMaterialsByName: Record<string, MeshStandardMaterial> = {};
+    private readonly _originalMaterials: Record<string, Material> = {};
+    private readonly _originalMaterialsByName: Record<string, Material> = {};
+    private readonly _pixelPass: RenderPixelatedPass;
+    private readonly _scene: Scene;
+    private readonly _initialPixelEdgeStrength: number | undefined;
     private _lastInteractTime = 0;
     
     public constructor(opts: AnimatorOpts) {
+        this._scene = opts.scene;
         this._cameraControl = opts.cameraControl;
         this._puzzleBox = opts.puzzleBox;
+        this._pixelPass = opts.pixelPass;
+        this._initialPixelEdgeStrength = opts.pixelPass.depthEdgeStrength;
         this._originalMaterials = Object.assign(
             {},
             ...(() => {
                 const mats: Record<string, Material>[] = [];
                 for (const o of this._allObjects()) {
                     if (isMesh(o)) {
-                        const mat = o.material as MeshStandardMaterial;
+                        const mat = o.material as Material;
                         mat.userData.tags = parseTags(mat.userData.tags);
                         mats.push({ [mat.uuid]: mat.clone() });
                     }
@@ -234,9 +241,6 @@ export class Animator {
             dt -= this._lastUpdateTime;
             this._lastUpdateTime += dt;
         }
-        // for (const k in this._cachedMixerByRootName) {
-        //     this._cachedMixerByRootName[k].update(dt);
-        // }
         this._sequencer.update(dt);
         for (const k in this._cachedMixerByRootName) {
             const mixer = this._cachedMixerByRootName[k];
@@ -251,17 +255,18 @@ export class Animator {
     public reset() {
         this._sequencer.abort();
         
+        this._scene.fog = new Fog(BLACK, 0, 100);
         for (const o of this._allObjects()) {
-            if (o.userData.tags?.['hidden']) {
-                o.visible = false;
-            }
+            o.visible = !(o.userData.tags?.['hidden']);
             if (isMesh(o)) {
-                const mat = o.material as Material;
-                o.material = this._originalMaterials[o.userData.originalMaterial].clone();
+                const mat = o.material = this._originalMaterials[o.userData.originalMaterial].clone();
                 if (o.name.startsWith('spread-progress-glow')) {
-                    (o.material as MeshStandardMaterial).opacity = 0;
+                    (mat as MeshStandardMaterial).opacity = 0;
                 } else if (o.name.startsWith('spread-progress')) {
-                    (o.material as MeshStandardMaterial).emissive.copy(COLORS.SPREAD_BAR_START_COLOR);
+                    (mat as MeshStandardMaterial).emissive.copy(COLORS.SPREAD_BAR_START_COLOR);
+                }
+                if (mat.userData.tags['no-vertex-colors']) {
+                    mat.vertexColors = false;
                 }
             }
         }
@@ -302,6 +307,11 @@ export class Animator {
                 return true;
             }
         })).play();
+        return this;
+    }
+
+    public animateFail(): this {
+        this._sequencer.then(this._createFlashSequence(1.5)).play();
         return this;
     }
 
@@ -346,13 +356,15 @@ export class Animator {
     }
 
     private _setCoreColor(darkColor: Color, lightColor: Color) {
-        const updateMaterial = (mat: MeshStandardMaterial) => {
+        const updateMaterial = (mat: Material) => {
             if (mat.userData.tags?.['core']) {
                 const c = mat.userData.tags?.['dark'] ? darkColor : lightColor;
-                if (mat.emissive.equals(BLACK)) {
-                    mat.color.set(c);
-                } else {
-                    mat.emissive.set(c);
+                if (isMeshStandardMaterial(mat)) {
+                    if (mat.emissive.equals(BLACK)) {
+                        mat.color.set(c);
+                    } else {
+                        mat.emissive.set(c);
+                    }
                 }
             }
         };
@@ -582,7 +594,7 @@ export class Animator {
         );
         const pathGlowMaterial = this._getMeshMaterialByMeshName('drip-path-glow');
         const origPathGlowMaterial =
-            this._originalMaterials[this._getMeshByName('drip-path-glow').userData.originalMaterial];
+            this._originalMaterials[this._getMeshByName('drip-path-glow').userData.originalMaterial] as MeshStandardMaterial;
         const f1 = numOldDripIds / 10;
         const f2 = (numOldDripIds + newDripIds.length) / 10
         const initialGlowEmmisive: Color = new Color().lerpColors(
@@ -645,7 +657,7 @@ export class Animator {
         );
         const pathGlowMaterial = this._getMeshMaterialByMeshName('drip-path-glow');
         const origPathGlowMaterial =
-            this._originalMaterials[this._getMeshByName('drip-path-glow').userData.originalMaterial];
+            this._originalMaterials[this._getMeshByName('drip-path-glow').userData.originalMaterial] as MeshStandardMaterial;
         const centerGlow = this._getMeshByName('drip-center-glow');
         const centerGlowMaterial = centerGlow.material as MeshStandardMaterial;
         const f1 = numOldDripIds / 10;
@@ -702,7 +714,7 @@ export class Animator {
         const newRatio = Math.min(1, getTrueFeeAmount(prevFees + fees) / 999);
         const newBarsStart = Math.round(oldRatio * 12);
         const newBarsEnd = Math.round(newRatio * 12);
-        const targetEmissive = this._originalMaterialsByName['spread-glow'].emissive;
+        const targetEmissive = (this._originalMaterialsByName['spread-glow'] as MeshStandardMaterial).emissive;
         const newBarMaterials: MeshStandardMaterial[] = [];
         const newBarGlowMaterials: MeshStandardMaterial[] = [];
         for (let i = newBarsStart; i < newBarsEnd; ++i) {
@@ -751,7 +763,7 @@ export class Animator {
             ));
         }
         let numBarsPlayed = 0;
-        const delayPerBar = 0.2;
+        const delayPerBar = 0.1;
         this._sequencer
             .then(this._createCameraSequence([0.90, -0.28, -0.35]))
             .then(new SequenceAction({
@@ -839,32 +851,95 @@ export class Animator {
             'open',
             { clamp: true },
         );
-        const idleAction = this._createAnimationAction(
-            mixer,
-            'open-idle',
-            { loop: 'loop', blendMode: 'additive' },
-        );
+        const core = this._getMeshByName('core');
+        const coreToTrophy = this._getMeshByName('core-to-trophy');
+        const trophy = this._getMeshByName('trophy');
+        const lightLeakMaterial = this._getMeshMaterialByMeshName('light-leak');
+        const panels = this._getObjectByName('panels');
         this._sequencer
             .then(new SequenceAction({
-                enter: () => {
-                    openAction.stop(); openAction.play();
-                },
-                update: () => {
-                    this._lastInteractTime = Date.now() / 1e3;
-                    this._touchMixer(mixer);
-                    return !openAction.isRunning();
-                },
-                exit: () => {
-                    this._touchMixer(mixer, true);
-                    idleAction.stop(); idleAction.play();
-                },
-            }),
-            this._createCoreColorSequence(
-                COLORS.OPERATE_DARK, COLORS.OPEN_DARK,    
-                COLORS.OPERATE_LIGHT, COLORS.OPEN_LIGHT,
-            ),
-            this._createFlashSequence(1.25, 0.5),
-        ).play();
+                    enter: () => {
+                        this._sequencer.getChannel('box-glow').abort();
+                        openAction.stop(); openAction.play();
+                    },
+                    update: () => {
+                        this._lastInteractTime = Date.now() / 1e3;
+                        this._touchMixer(mixer);
+                        return !openAction.isRunning();
+                    },
+                    exit: () => {
+                        this._lastInteractTime = 0;
+                    },
+                }),
+                this._createCoreColorSequence(
+                    COLORS.OPERATE_DARK, COLORS.OPEN_DARK,    
+                    COLORS.OPERATE_LIGHT, COLORS.OPEN_LIGHT,
+                ),
+                this._createFlashSequence(1.25, 0.5),
+                new Sequence()
+                    .then(
+                        new SequenceAction({
+                            update({ runningTime }) {
+                                const t = Math.min(1, runningTime / 0.5);
+                                lightLeakMaterial.opacity = (1-t);
+                                return t >= 1;
+                            } 
+                        }),
+                    )
+                    .then(this._createWaitSequence(2))
+                    .then(new SequenceAction({
+                            update: ({ runningTime }) => {
+                                const t = Math.min(1, runningTime / 1.0);
+                                const fogColor = COLORS.OPEN_FOG_START
+                                    .clone()
+                                    .lerpHSL(COLORS.OPEN_FOG_END, t);
+                                this._scene.fog = new Fog(
+                                    fogColor,
+                                    0,
+                                    0 + (1 - t) * 10,
+                                );
+                                if (this._initialPixelEdgeStrength) {
+                                    this._pixelPass.depthEdgeStrength =
+                                        this._initialPixelEdgeStrength * (1-t);
+                                }
+                                return t >= 1;
+                            },
+                    }))
+                    .then(new SequenceAction({
+                        enter: () => {
+                            panels.visible = false;
+                            core.visible = false;
+                            coreToTrophy.visible = true;
+                            {
+                                const mat = new MeshBasicMaterial();
+                                mat.transparent = true;
+                                mat.color = COLORS.OPEN_FOG_END;
+                                mat.fog = false;
+                                mat.depthWrite = false;
+                                coreToTrophy.material = mat;
+                            }
+                        },
+                    }))
+                    .then(this._createWaitSequence(1))
+                    .thenPlay(
+                        new SequenceAction({
+                            update: ({ runningTime }) => {
+                                const t = Math.min(1, runningTime / 2.0);
+                                (coreToTrophy.material as MeshBasicMaterial).opacity = 1 - t;
+                                this._scene.fog = new Fog(
+                                    this._scene.fog!.color,
+                                    0,
+                                    0 + t * 100,
+                                );
+                                if (this._initialPixelEdgeStrength) {
+                                    this._pixelPass.depthEdgeStrength =
+                                        this._initialPixelEdgeStrength * t;
+                                }
+                                return t >= 1;
+                            },
+                        }),
+                    ),
+            ).play();
         return this;
     }
 }

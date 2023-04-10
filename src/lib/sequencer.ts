@@ -114,6 +114,11 @@ export class Sequence implements ISequence {
         return this;
     }
 
+    public thenPlay(...seqs: ISequence[]): this {
+        this.then(...seqs);
+        return this.play();
+    }
+
     public pause(): void {
         this._paused = true;
     }
@@ -129,15 +134,15 @@ export class Sequence implements ISequence {
         return this._playPromise;
     }
 
-    public play(): Promise<boolean> {
+    public play(): this {
         if (this._hasStarted) {
             this.abort();
         }
         if (this._graph.length === 0) {
-            return Promise.resolve(true);
+            return this;
         }
         this._hasStarted = true;
-        return this._playPromise = new Promise<boolean>((a, r) => {
+        this._playPromise = new Promise<boolean>((a, r) => {
             this._resolve = (err, completed) => {
                 if (err) {
                     return r(err);
@@ -145,6 +150,7 @@ export class Sequence implements ISequence {
                 a(completed);
             };
         });
+        return this;
     }
 
     public update(dt: number): boolean {
@@ -156,7 +162,8 @@ export class Sequence implements ISequence {
         }
         if (this._graph.length) {
             let completed = true;
-            for (const s of this._graph[0]) {
+            const top = this._graph[0];
+            for (const s of top) {
                 if (!s.update(dt)) {
                     completed = false;
                 }
@@ -214,10 +221,9 @@ export class MultiSequencer {
         for (const k in this._channels) {
             const ch = this._channels[k];
             if (!ch.isPlaying()) {
-                promises.push(this._channels[k].play());
-            } else {
-                promises.push(this._channels[k].wait());
+                this._channels[k].play();
             }
+            promises.push(this._channels[k].wait());
         }
         return Promise.all(promises).then(r => r.every(s => s));
     }

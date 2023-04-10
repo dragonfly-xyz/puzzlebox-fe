@@ -82,7 +82,7 @@
     }
 
     .entry >:nth-child(1) {
-        width: 5ex;
+        width: 8ex;
         padding-right: 1ex;
     }
 
@@ -118,7 +118,7 @@
 </style>
 
 <div class="component">
-    <div class="header">HI SCORES</div>
+    <div class="header"><a href="scores" target="_blank">HI SCORES</a></div>
     <div class="clip" bind:this={scoresElem}>
         {#if message}
         <div class="message">{ message }</div>
@@ -131,9 +131,9 @@
                     <div>{ formatScore(hs.score) }</div>
                 </div>
             {/each}
-            {#if sortedHiScores.length > 1}
+            {#if sortedHiScores.length > 16}
             <div class="more">
-                <a href="/scores" target="_blank">...more &gt;&gt;</a>
+                <a href="scores" target="_blank">...more &gt;&gt;</a>
             </div>
             {/if}
         </div>

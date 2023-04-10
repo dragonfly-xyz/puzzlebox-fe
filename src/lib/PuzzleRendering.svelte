@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { dev } from '$app/environment';
+    import _ from 'underscore';
     import {
     AmbientLight,
         Camera,
@@ -7,14 +7,10 @@
         DirectionalLight,
         Group,
         LinearToneMapping,
-        Matrix4,
         OrthographicCamera,
         Scene,
-        Vector2,
         Vector3,
         WebGLRenderer,
-        type AnimationClip,
-        type Material,
     } from 'three';
     import { degToRad } from 'three/src/math/MathUtils';
     import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
@@ -22,15 +18,13 @@
     import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass';
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
     import { createEventDispatcher } from 'svelte';
-    import _ from 'underscore';
     import { Animator } from './animator';
-    import { TORCH_SELECTOR } from './scoring';
     import type { SimResultsWithScore } from './types';
     import { formatScore } from './util';
     import { onMount, onDestroy } from 'svelte';
+    import { animateFromResults } from './animator-utils';
 
     const dispatch = createEventDispatcher();
-    const DEFAULT_VIEW_ANGLE = [-0.60, -0.53, -0.6] as [number, number, number];
 
     export let el: HTMLElement | undefined;
     export let simResultsWithScore: SimResultsWithScore | null = null;
@@ -86,11 +80,13 @@
         const composer = new EffectComposer(renderer);
         renderer.toneMapping = LinearToneMapping;
         renderer.toneMappingExposure = 0.85;
-        composer.addPass(new RenderPixelatedPass(2.5, scene, camera, { depthEdgeStrength: 0.15, normalEdgeStrength: 0.001 }));
+        const pixelPass = new RenderPixelatedPass(2.5, scene, camera, { depthEdgeStrength: 0.5, normalEdgeStrength: 0.001 });
+        composer.addPass(pixelPass);
         const animator = new Animator({
             scene,
             cameraControl,
             puzzleBox,
+            pixelPass,
             clips: animations,
         });
         animator.reset();
@@ -107,30 +103,30 @@
         const render = () => {
             if (renderContext?.renderer) {
                 composer.render(animator!.update());
-                setTimeout(() => requestAnimationFrame(render), 25);
+                setTimeout(() => requestAnimationFrame(render), 28);
             }
         }
         render();
-        setTimeout(async () => {
-            await animator
-                .animateOperateChallenge()
-                .animateUnlockTorchChallenge()
-                .animateTakeFee(0, 102300)
-                .animateDripChallenge(0, [1,2,3,4,5,6,7,8,9,10])
-                .animateBurn(10, 0, [3])
-                .animateSpreadChallenge(999)
-                .animateBurn(9, 1, [1])
-                .animateZipChallenge()
-                .animateBurn(8, 2, [5])
-                .animateTorchChallenge()
-                .animateBurn(7, 3, [2,4,6,7,8,9])
-                .animateBurn(1, 9, [10])
-                .animateOpenChallenge()
-                .wait();
-            // await animator.animateReset().wait();
-            // await animator
-            //     .animateOperateChallenge().wait();
-            }, 5000);
+        // setTimeout(async () => {
+        //     await animator
+        //         .animateOperateChallenge()
+        //         .animateUnlockTorchChallenge()
+        //         .animateTakeFee(0, 102300)
+        //         .animateDripChallenge(0, [1,2,3,4,5,6,7,8,9,10])
+        //         .animateBurn(10, 0, [3])
+        //         .animateSpreadChallenge(999)
+        //         .animateBurn(9, 1, [1])
+        //         .animateZipChallenge()
+        //         .animateBurn(8, 2, [5])
+        //         .animateTorchChallenge()
+        //         .animateBurn(7, 3, [2,4,6,7,8,9])
+        //         .animateBurn(1, 9, [10])
+        //         .animateOpenChallenge()
+        //         .wait();
+        //     // await animator.animateReset().wait();
+        //     // await animator
+        //     //     .animateOperateChallenge().wait();
+        //     }, 500);
     });
 
     onDestroy(() => {
@@ -140,147 +136,34 @@
         }
     });
 
-    // $: (async () => {
-    //     isPrompting = false;
-    //     if (!simResultsWithScore
-    //         || simResultsWithScore.simResults.error
-    //         || !animator 
-    //         || !mainSequencer)
-    //     {
-    //         return;   
-    //     }
-    //     dispatch('animating');
-    //     const { simResults } = simResultsWithScore;
-    //     if (simResults.puzzleEvents.length === 0) {
-    //         mainSequencer.play([
-    //             animator.animateReset(),
-    //             animator.animateCamera(DEFAULT_VIEW_ANGLE),
-    //             animator.animateRattleBox(),
-    //         ]);
-    //     } else {
-    //         const seq = [animator.animateReset()];
-    //         let lastEventName: string | undefined;
-    //         for (let i = 0; i < simResults.puzzleEvents.length; ++i) {
-    //             const { eventName, args: eventArgs } = simResults.puzzleEvents[i];
-    //             const nextEventName = simResults.puzzleEvents[i + 1]?.eventName;
-    //             if (eventName === 'Operate') {
-    //                 seq.push(
-    //                     animator.animateCamera(DEFAULT_VIEW_ANGLE),
-    //                     animator.animateOperateChallenge(),
-    //                 );
-    //             } else if (eventName === 'Lock') {
-    //                 if (eventArgs.selector === TORCH_SELECTOR && !eventArgs.isLocked) {
-    //                     seq.push(
-    //                         animator.animateCamera([-0.88, -0.26, -0.39]),
-    //                         animator.animateLockChallenge(),
-    //                     );
-    //                 }
-    //             } else if (eventName === 'Drip') {
-    //                 const dripIds: number[] = [];
-    //                 let totalFees = 0n;
-    //                 for (; i < simResults.puzzleEvents.length; ++i) {
-    //                     const followupEvent = simResults.puzzleEvents[i];
-    //                     if (followupEvent.eventName !== 'Drip') {
-    //                         i = i - 1;
-    //                         break;
-    //                     }
-    //                     dripIds.push(Number(followupEvent.args.dripId));
-    //                     totalFees += followupEvent.args.fee;
-    //                 }
-    //                 if (totalFees !== 0n && dripIds.length != 0) {
-    //                     seq.push(animator.animateCamera([0.89, -0.26, -0.38]));
-    //                     seq.push(animator.animateTakeFees(Number(totalFees)));
-    //                     seq.push(animator.animateCamera([-0.39, -0.26, -0.88]));
-    //                     seq.push(animator.animateDripChallenge(dripIds));
-    //                 }
-    //             } else if (eventName === 'Torch') {
-    //                     seq.push(
-    //                         animator.animateCamera([-0.88, -0.26, -0.39]),
-    //                         animator.animateTorchChallenge(),
-    //                     );
-    //             } else if (eventName === 'Burned') {
-    //                 if (lastEventName !== 'Burned') {
-    //                     seq.push(animator.animateCamera([-0.39, -0.26, -0.88]));
-    //                 }
-    //                 seq.push(
-    //                     animator.animateBurnChallenge(Number(eventArgs.dripId)),
-    //                 );
-    //             } else if (eventName === 'Zip') {
-    //                 seq.push(
-    //                     animator.animateCamera([0.29, -0.26, 0.92]),
-    //                     animator.animateZipChallenge(),
-    //                     animator.animateWait(0.5),
-    //                 );
-    //             } else if (eventName === 'Spread') {
-    //                 seq.push(
-    //                     animator.animateCamera([0.95, -0.28, -0.13]),
-    //                     animator.animateSpreadChallenge(Number(eventArgs.amount), Number(eventArgs.remaining)),
-    //                 );
-    //             } else if (eventName === 'Open') {
-    //                 seq.push(
-    //                     animator.animateCamera(DEFAULT_VIEW_ANGLE),
-    //                     animator.animateOpenChallenge(),
-    //                 );
-    //             }
-    //             if (nextEventName !== eventName) {
-    //                 seq.push(animator.animateWait(0.5));
-    //             }
-    //             lastEventName = eventName;
-    //         }
-    //         seq.push(
-    //             animator.animateCamera(DEFAULT_VIEW_ANGLE),
-    //             animator.animateWait(1),
-    //         );
-    //         await mainSequencer.play(seq);
-    //         console.log('complete');
-    //         if (simResultsWithScore.score > 0) {
-    //             isPrompting = true;
-    //         }
-    //     }
-    // })();
+    $: (async () => {
+        isPrompting = false;
+        if (!renderContext
+            || !simResultsWithScore
+            || simResultsWithScore.simResults.error
+        ) {
+            return;   
+        }
+        dispatch('animating');
+        const { animator } = renderContext;
+        await animator.animateReset().wait();
+        animator.animateWait(1);
+        animateFromResults(animator, simResultsWithScore.simResults);
+        if (simResultsWithScore.score > 0) {
+            animator.animateWait(2.5);
+        }
+        await animator.wait();
+        console.log('complete');
+        if (simResultsWithScore.score > 0) {
+            isPrompting = true;
+        }
+    })();
 
     $: {
         if (submitPromise) {
             submitPromise.then(() => isPrompting = false);
         }
     }
-
-    // $: {
-    //     if (canvasContext && animations && materials && puzzleBox) {
-    //         composer = new EffectComposer(canvasContext.renderer);
-    //         {
-    //             const bloomEffect = new SelectiveBloomEffect(
-    //                 canvasContext.scene,
-    //                 cameraControl.object,
-    //                 {
-    //                     blendFunction: BlendFunction.ADD,
-    //                     mipmapBlur: true,
-    //                     luminanceThreshold: 0.7,
-    //                     luminanceSmoothing: 0.3,
-    //                     intensity: 3.0
-    //                 },
-    //             );
-    //             bloomEffect.inverted = true;
-    //             const pixelEffect = new PixelationEffect();
-    //             composer.addPass(new EffectPass(cameraControl.object, bloomEffect, pixelEffect));
-    //         }
-    //         animator = new Animator({
-    //             scene: canvasContext.scene,
-    //             cameraControl,
-    //             clips: animations,
-    //             puzzleBox,
-    //             materials,
-    //         });
-    //         mainSequencer = animator.getSequencer('main');
-    //         animator.reset();
-    //         const render = () => {
-    //             animator!.update();
-                
-    //             requestAnimationFrame(render);
-    //         }
-    //         render();
-    //     }
-    // }
 
     $: {
         if (renderContext?.cameraControl) {
