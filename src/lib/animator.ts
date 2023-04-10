@@ -65,7 +65,7 @@ const COLORS = {
     OPEN_LIGHT: new Color('#11ff88'),
     SPREAD_BAR_START_COLOR: new Color('#222'),
     OPEN_FOG_START: new Color('#022411'),
-    OPEN_FOG_END: new Color('#fc5203'),
+    OPEN_FOG_END: new Color('#fa4c14'),
 };
 
 function isMesh(o: Object3D): o is Mesh {
