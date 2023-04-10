@@ -51,6 +51,7 @@
         @extend .pixel-corners;
         height: 100%;
         position: relative;
+        cursor: text;
     }
 
     .component > :global(.pz-code-editor) {
