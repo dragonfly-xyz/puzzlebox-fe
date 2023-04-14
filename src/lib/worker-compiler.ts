@@ -1,6 +1,6 @@
 import type { CompilerInput, CompilerOutput } from './compile';
 
-const SOLJSON_URL = 'https://binaries.soliditylang.org/bin/soljson-v0.8.19+commit.7dd6d404.js';
+const SOLJSON_URL = 'soljson-v0.8.19+commit.7dd6d404.js';
 
 let worker: Worker | undefined;
 
