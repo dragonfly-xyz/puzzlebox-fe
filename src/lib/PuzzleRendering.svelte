@@ -28,8 +28,6 @@
 
     export let el: HTMLElement | undefined;
     export let simResultsWithScore: SimResultsWithScore | null = null;
-    export let submitName: string = '';
-    export let submitPromise: Promise<any> | null = null;
 
     let isPrompting = false;
     let renderContext: {
@@ -107,26 +105,6 @@
             }
         }
         render();
-        // setTimeout(async () => {
-        //     await animator
-        //         .animateOperateChallenge()
-        //         .animateUnlockTorchChallenge()
-        //         .animateTakeFee(0, 102300)
-        //         .animateDripChallenge(0, [1,2,3,4,5,6,7,8,9,10])
-        //         .animateBurn(10, 0, [3])
-        //         .animateSpreadChallenge(999)
-        //         .animateBurn(9, 1, [1])
-        //         .animateZipChallenge()
-        //         .animateBurn(8, 2, [5])
-        //         .animateTorchChallenge()
-        //         .animateBurn(7, 3, [2,4,6,7,8,9])
-        //         .animateBurn(1, 9, [10])
-        //         .animateOpenChallenge()
-        //         .wait();
-        //     // await animator.animateReset().wait();
-        //     // await animator
-        //     //     .animateOperateChallenge().wait();
-        //     }, 500);
     });
 
     onDestroy(() => {
@@ -137,7 +115,6 @@
     });
 
     $: (async () => {
-        isPrompting = false;
         if (!renderContext
             || !simResultsWithScore
             || simResultsWithScore.simResults.error
@@ -160,12 +137,6 @@
     })();
 
     $: {
-        if (submitPromise) {
-            submitPromise.then(() => isPrompting = false);
-        }
-    }
-
-    $: {
         if (renderContext?.cameraControl) {
             renderContext.cameraControl.addEventListener('change', () => {
                 logCameraRay();
@@ -173,9 +144,10 @@
         }
     }
 
-    function submitScore(): void {
+    function onSubmitScore(): void {
+        isPrompting = false;
         if (simResultsWithScore) {
-            dispatch('submitScore', {name: submitName, score: simResultsWithScore.score });
+            dispatch('submitScore');
         }
     }
 
@@ -222,22 +194,24 @@
         padding: 0.75em 2ex;
         display: flex;
         flex-direction: column;
-        gap: 0.5em;
+        gap: 0.75em;
         text-align: center;
     }
     .box button {
         align-self: center;
         margin-bottom: 0;
+        display: flex;
     }
     .box .score {
         font-family: 'Silkscreen', monospace;
         font-weight: bold;
     }
-    .box input {
-        font-family: 'Silkscreen', monospace;
-        @extend .pixel-corners;
-        text-align: center;
-        margin-bottom: 0;
+    .box > *:nth-child(2) {
+        display: flex;
+        flex-direction: row;
+        gap: 2ex;
+        justify-content: center;
+
     }
     @keyframes popup {
         from { transform: scale(0.01); }
@@ -247,26 +221,20 @@
 
 <div class="component" bind:this={el}>
     <div class="cover" class:active={isPrompting} on:click|stopPropagation={() => {isPrompting = false}}>
-        <div class="box" class:busy={submitPromise} on:click|stopPropagation>
+        <div class="box" on:click|stopPropagation>
             <div>
                 Your score: <span class="score">{ formatScore(simResultsWithScore?.score || 0) }</span>
             </div>
             <div>
-                <input
-                    type="text"
-                    placeholder="whats_your_name"
-                    maxlength="24"
-                    bind:value={submitName}
-                    disabled={!!submitPromise}
-                />
-            </div>
-            <button
-                class="pixel-button"
-                aria-busy={!!submitPromise}
-                disabled={!submitName || !!submitPromise}
-                on:click|preventDefault={submitScore}>
-                    Submit
+                <button
+                    class="pixel-button"
+                    on:click|stopPropagation={onSubmitScore}>
+                        Submit
                 </button>
+                <button class="pixel-button" on:click|stopPropagation={() => isPrompting = false}>
+                    Nah
+                </button>
+            </div>
         </div>
     </div>
 </div>

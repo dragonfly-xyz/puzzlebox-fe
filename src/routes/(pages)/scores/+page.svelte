@@ -1,16 +1,33 @@
 <script lang="ts">
-    import { getScores } from "$lib/backend";
-    import type { Score } from "$lib/types";
-    import { formatScore } from "$lib/util";
+    import { getScores, submitScore } from "$lib/backend";
+    import type { Score, SubmitData } from "$lib/types";
+    import { formatScore, getStoredSubmission } from "$lib/util";
     import { onMount } from "svelte";
+    import { page } from '$app/stores';
 
-    let scores: Score[] = [];
-    let isLoading = false;
-    
-    onMount(async () => {
-        isLoading = true;
-        scores = await getScores(1000);
-        isLoading = false;
+    let scores: Score[] | undefined;
+    let submitData: SubmitData | undefined;
+
+    $: (async () => {
+        if (!submitData) {
+            scores = await getScores(500);
+        } else {
+            await submitScore(submitData);
+            submitData = undefined;
+        }
+    })();
+
+    onMount(() => {
+        const pageUrl = $page.url;
+        const authCode = pageUrl.searchParams.get('code');
+        const key = $page.url.searchParams.get('state');
+        const submission = key ? getStoredSubmission(key) : null;
+        if (authCode && key && submission) {
+            submitData = {
+                authCode,
+                ...submission,
+            };
+        }
     });
 </script>
 
@@ -54,13 +71,15 @@
 
 <div class="component">
     <div class="header">HI SCORES</div>
-    {#if isLoading}
+    {#if submitData}
+    <div class="">fff</div>
+    {:else if !scores}
     <div class="loading">loading...</div>
     {:else}
-    {#each scores as { name, score, address}, idx}
+    {#each scores as { name, score, profile }, idx}
     <div class="entry" class:odd={!!(idx % 2)}>
         <div>{ idx + 1 }.</div>
-        <div><a href={`https://etherscan.io/address/${address.toLowerCase()}`} target="_blank">{ name }</a></div>
+        <div><a href={profile} target="_blank">{ name }</a></div>
         <div>{ formatScore(score) }</div>
     </div>
     {/each}

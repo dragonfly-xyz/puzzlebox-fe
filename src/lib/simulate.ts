@@ -6,9 +6,9 @@ import {
     custom,
     decodeAbiParameters,
     decodeEventLog,
-    getAccount,
     type TransactionReceipt,
 } from 'viem';
+import { mainnet, localhost } from 'viem/chains';
 import type { CompilerArtifacts } from './compile';
 
 const SIM_VALUE = 1337;
@@ -36,12 +36,12 @@ export async function simulate(artifacts: CompilerArtifacts): Promise<SimResults
             }],
         },
     });
-    const pc = createPublicClient({ transport: custom(provider) });
-    const wallet = createWalletClient({ transport: custom(provider) });
+    const pc = createPublicClient({ chain: localhost, transport: custom(provider) });
+    const wallet = createWalletClient({ chain: localhost, transport: custom(provider) });
     let txId = await wallet.deployContract({
         abi: artifacts.runner.abi,
         bytecode: artifacts.runner.bytecode,
-        account: getAccount('0x9BE7E7eA695D8e1a9D12f12EA002713F350Cdd41'),
+        account: '0x9BE7E7eA695D8e1a9D12f12EA002713F350Cdd41',
         args: [artifacts.solution.deployedBytecode, BigInt(Math.floor(Math.random() * 2**32))],
         value: BigInt(SIM_VALUE),
         gas: 32e6,

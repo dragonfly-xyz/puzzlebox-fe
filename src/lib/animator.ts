@@ -311,7 +311,20 @@ export class Animator {
     }
 
     public animateFail(): this {
-        this._sequencer.then(this._createFlashSequence(1.5)).play();
+        const mixer = this._getMixer(this._getObjectByName('box'));
+        const action = this._createAnimationAction(mixer, 'rattle', { loop: 'bounce', repeat: 1 });
+        this._sequencer.then(
+            this._createFlashSequence(0.75),
+            new SequenceAction({
+                enter() {
+                    action.stop(); action.play();
+                },
+                update: ({runningTime}) => {
+                    this._touchMixer(mixer);
+                    return runningTime >= (action.getClip().duration / action.timeScale) * 2;
+                }
+            })
+        ).play();
         return this;
     }
 

@@ -12,6 +12,7 @@
     import type { Score } from '$lib/types';
     import { onMount } from 'svelte';
     import { scrollIntoView } from 'seamless-scroll-polyfill';
+    import ScoreSubmit from '$lib/ScoreSubmit.svelte';
 
     enum SolveStep {
         None = 'Solve',
@@ -19,15 +20,16 @@
         Simulating = 'Executing (2/2)...',
     }
 
-    let hiScores: Score[] | null = null;
+    let hiScores: Score[] | undefined;
     let account: Account;
     let solveStep: SolveStep = SolveStep.None;
-    let solutionError: string | null = null;
-    let simResultsWithScore: SimResultsWithScore | null = null;
-    let submitPromise: Promise<any> | null = null;
+    let solutionError: string | undefined;
+    let simResultsWithScore: SimResultsWithScore | undefined = { score: 100 };
+    let signScorePromise: Promise<any> | undefined;
     let solutionCode = solutionStubCode;
     let puzzleRenderingEl: HTMLElement | undefined;
     let challengeCodeExpanded = false;
+    let isSubmitting: boolean = true;
 
     function copyChallenge({detail: contents}: CustomEvent<string>) {
         navigator.clipboard.writeText(contents);
@@ -47,7 +49,7 @@
                 score: scoreSimResults(simResults),
             };
         })().then(() => {
-            solutionError = null;
+            solutionError = undefined;
         }).catch((err) => {
             console.error(err);
             solutionError = err.toString();
@@ -57,19 +59,25 @@
     }
 
     function onSolutionAnimating(e: CustomEvent<any>) {
-        scrollIntoView(puzzleRenderingEl, {behavior: 'smooth', block: 'start', inline: 'center'}, { duration: 250 });
+        scrollIntoView(
+            puzzleRenderingEl,
+            { behavior: 'smooth', block: 'start', inline: 'center' },
+            { duration: 250 },
+        );
     }
 
-    function onSubmitScore({ detail }: { detail: { name: string, score: number } } ) {
-        if (detail.score <= 0) {
+    function onSubmitScore() {
+        if (!simResultsWithScore || simResultsWithScore.score <= 0) {
             return;
         }
-        if (submitPromise) {
-            throw new Error('Alreadying submitting!');
-        }
-        submitPromise = submitScore(detail.name, detail.score, 600, solutionCode)
-            .then(() => { refreshScores(); })
-            .finally(() => submitPromise = null );
+        isSubmitting = true;
+        // const score = simResultsWithScore.score;
+        // if (submitPromise) {
+        //     throw new Error('Alreadying submitting!');
+        // }
+        // submitPromise = submitScore(name, score, 600, solutionCode)
+        //     .then(() => { refreshScores(); })
+        //     .finally(() => submitPromise = undefined);
     }
 
     function expandChallengeCode() {
@@ -79,7 +87,6 @@
     async function refreshScores(): Promise<void> {
         hiScores = await getScores(16);
     }
-
 
     onMount(async () => {
         const pollScores = async () => {
@@ -146,6 +153,11 @@
         padding-left: 2ex;
         opacity: 0.75;
     }
+    .submit-container {
+    }
+    .submit-container.hidden {
+        display: none;
+    }
 </style>
 
 <div class="page">
@@ -156,7 +168,6 @@
                 simResultsWithScore={simResultsWithScore}
                 on:submitScore={onSubmitScore}
                 on:animating={onSolutionAnimating}
-                submitPromise={submitPromise}
             />
         </div>
     </div>
@@ -183,5 +194,8 @@
             busy={solveStep != SolveStep.None}
             bind:error={solutionError}
         />
+    </div>
+    <div class="submit-container" class:hidden={!isSubmitting}>
+        <ScoreSubmit score={simResultsWithScore?.score} solution={solutionCode} />
     </div>
 </div>
