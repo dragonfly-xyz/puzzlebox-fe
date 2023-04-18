@@ -1,0 +1,31 @@
+name: publish-netlify
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '19'
+      - name: prepare env
+        run: echo "${{ secrets.DOT_ENV }}" >> $GITHUB_ENV
+      - name: install deps
+        run: npm i --include=dev
+      - name: build
+        run: npm run build
+      - name: commit
+        run: |
+          git fetch origin gh-pages --depth 1 \
+          && git checkout -f gh-pages \
+          && git add build \
+          && git config user.name 'github-actions' \
+          && git commit --amend --no-edit \
+          && git push -f
+      - name: publish
+        run: curl -X POST -d {} https://api.netlify.com/build_hooks/643e988acdb70966f2fa67cf
+  
+        
