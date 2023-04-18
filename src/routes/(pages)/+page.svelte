@@ -60,7 +60,7 @@
 
     function onSolutionAnimating(e: CustomEvent<any>) {
         scrollIntoView(
-            puzzleRenderingEl,
+            document.querySelector('header'),
             { behavior: 'smooth', block: 'start', inline: 'center' },
             { duration: 250 },
         );

@@ -1,13 +1,14 @@
 <script lang="ts">
     import { getScores, submitScore } from "$lib/backend";
     import type { Score, SubmitData } from "$lib/types";
-    import { formatScore, getStoredSubmission } from "$lib/util";
+    import { clearStoredSubmission, formatScore, getStoredSubmission } from "$lib/util";
     import { onMount } from "svelte";
     import { page } from '$app/stores';
     import { browser } from "$app/environment";
 
     let scores: Score[] | undefined;
     let submitData: SubmitData | undefined;
+    let submitKey: string | null | undefined;
 
     $: (async () => {
         if (browser) {
@@ -15,6 +16,7 @@
                 scores = await getScores(500);
             } else {
                 await submitScore(submitData);
+                clearStoredSubmission(submitKey!);
                 submitData = undefined;
             }
         }
@@ -23,9 +25,9 @@
     onMount(() => {
         const pageUrl = $page.url;
         const authCode = pageUrl.searchParams.get('code');
-        const key = $page.url.searchParams.get('state');
-        const submission = key ? getStoredSubmission(key) : null;
-        if (authCode && key && submission) {
+        submitKey = $page.url.searchParams.get('state');
+        const submission = submitKey ? getStoredSubmission(submitKey) : null;
+        if (authCode && submitKey && submission) {
             submitData = {
                 authCode,
                 ...submission,
@@ -75,14 +77,21 @@
 <div class="component">
     <div class="header">HI SCORES</div>
     {#if submitData}
-    <div class="">fff</div>
+    <div class="loading">Submitting Score...</div>
     {:else if !scores}
-    <div class="loading">loading...</div>
+    <div class="loading">Loading...</div>
     {:else}
     {#each scores as { name, score, profile }, idx}
     <div class="entry" class:odd={!!(idx % 2)}>
         <div>{ idx + 1 }.</div>
-        <div><a href={profile} target="_blank">{ name }</a></div>
+        <div>
+            <a
+            href={profile}
+            target="_blank"
+            >
+                { name }
+            </a>
+        </div>
         <div>{ formatScore(score) }</div>
     </div>
     {/each}

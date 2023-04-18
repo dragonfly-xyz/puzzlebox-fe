@@ -24,6 +24,7 @@
 		"@codemirror/theme-one-dark": "^6.1.1",
 		"@picocss/pico": "^1.5.7",
 		"@replit/codemirror-lang-solidity": "^6.0.1",
+		"@replit/codemirror-vscode-keymap": "^6.0.2",
 		"@types/three": "^0.149.0",
 		"@types/underscore": "^1.11.4",
 		"buffer": "^6.0.3",

@@ -127,7 +127,14 @@
             {#each sortedHiScores.slice(0,16) as hs, idx}
                 <div class="entry">
                     <div>{ idx + 1 }.</div>
-                    <div><a href={hs.profile} target="_blank">{ hs.name }</a></div>
+                    <div>
+                        <a
+                            href={hs.profile}
+                            target="_blank"
+                        >
+                            { hs.name }
+                        </a>
+                    </div>
                     <div>{ formatScore(hs.score) }</div>
                 </div>
             {/each}

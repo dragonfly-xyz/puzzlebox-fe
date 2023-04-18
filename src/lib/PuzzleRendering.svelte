@@ -122,6 +122,7 @@
             return;   
         }
         dispatch('animating');
+        isPrompting = false;
         const { animator } = renderContext;
         await animator.animateReset().wait();
         animator.animateWait(1);

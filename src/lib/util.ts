@@ -15,6 +15,10 @@ export function storeSubmission(data: SubmissionData): string {
     return key;
 }
 
+export function clearStoredSubmission(key: string): void {
+    window.sessionStorage.removeItem(`__submit-${key}`);
+}
+
 export function formatScore(score: number) {
     return score.toLocaleString('en', {useGrouping: true});
 }

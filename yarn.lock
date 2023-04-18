@@ -183,6 +183,11 @@
   "resolved" "https://registry.npmjs.org/@replit/codemirror-lang-solidity/-/codemirror-lang-solidity-6.0.1.tgz"
   "version" "6.0.1"
 
+"@replit/codemirror-vscode-keymap@^6.0.2":
+  "integrity" "sha512-j45qTwGxzpsv82lMD/NreGDORFKSctMDVkGRopaP+OrzSzv+pXDQuU3LnFvKpasyjVT0lf+PKG1v2DSCn/vxxg=="
+  "resolved" "https://registry.npmjs.org/@replit/codemirror-vscode-keymap/-/codemirror-vscode-keymap-6.0.2.tgz"
+  "version" "6.0.2"
+
 "@scure/base@~1.1.0":
   "integrity" "sha512-ZxOhsSyxYwLJj3pLZCefNitxsj093tb2vq90mp2txoYeBqbcjDjqFhyM8eUjq/uFm6zJ+mUuqxlS2FkuSY1MTA=="
   "resolved" "https://registry.npmjs.org/@scure/base/-/base-1.1.1.tgz"

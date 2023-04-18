@@ -24,7 +24,8 @@
         termsAgreed;
 
     function isValidName(s: string): boolean {
-        return /^[-/\\@a-z0-9_?!.,]+$/.test(s) || EMOJI_REGIX.test(s);
+        return s.length <= 32 && 
+            /^[-/\\@a-z0-9_?!.,^~]*$/i.test(s.replace(EMOJI_REGIX, ''));
     }
 
     function isValidEmail(s: string): boolean {
@@ -153,7 +154,7 @@
     </div>
     <div class="terms">
         <div on:click={() => termsAgreed = !termsAgreed}>
-            <input type="checkbox" bind:checked={termsAgreed} /> Agree to <a href="terms" target="_blank">terms</a>
+            <input type="checkbox" bind:checked={termsAgreed} /> Agree to <a href="terms" target="_blank" on:click|stopPropagation>terms</a>
         </div>
     </div>
     <div class="buttons">
