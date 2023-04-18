@@ -9,6 +9,7 @@
     let scores: Score[] | undefined;
     let submitData: SubmitData | undefined;
     let submitKey: string | null | undefined;
+    let submitted = false;
 
     $: (async () => {
         if (browser) {
@@ -18,6 +19,7 @@
                 await submitScore(submitData);
                 clearStoredSubmission(submitKey!);
                 submitData = undefined;
+                submitted = true;
             }
         }
     })();
@@ -67,6 +69,9 @@
     .loading {
         align-self: center;
     }
+    .thanks {
+        align-self: center;
+    }
     @keyframes blink {
         0% { opacity: 100% };
         50% { opacity: 15%; }
@@ -76,8 +81,10 @@
 
 <div class="component">
     <div class="header">HI SCORES</div>
-    {#if submitData}
-    <div class="loading">Submitting Score...</div>
+    {#if submitted}
+    <div class="thanks">Thanks for playing! You can <a href="/">try again</a> if you like.</div>
+    {:else if submitData}
+    <div class="loading">Hang tight! We're submitting your score...</div>
     {:else if !scores}
     <div class="loading">Loading...</div>
     {:else}
