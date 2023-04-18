@@ -24,10 +24,10 @@ jobs:
           touch build/.nojekyll
       - name: commit
         run: |
-          git checkout -f --orphan gh-pages
-          && git add build
-          && git config user.name 'github-actions'
-          && git commit -m 'build'
+          git checkout -f --orphan gh-pages \
+          && git add build \
+          && git config user.name 'github-actions' \
+          && git commit -m 'build' \
           && git push -f -u origin gh-pages
       - name: publish
         run: curl -X POST -d {} https://api.netlify.com/build_hooks/643e988acdb70966f2fa67cf
