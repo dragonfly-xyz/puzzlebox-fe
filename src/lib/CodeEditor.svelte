@@ -122,7 +122,6 @@
         bind:value={contents}
         theme={oneDarkTheme}
         extensions={[keymap.of(vscodeKeymap)]}
-        basic={false}
         tabSize={4}
         />
     <div class="cover">
