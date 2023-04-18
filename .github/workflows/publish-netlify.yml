@@ -25,7 +25,7 @@ jobs:
       - name: commit
         run: |
           git checkout -f --orphan gh-pages \
-          && git add build \
+          && git add -f build \
           && git config user.name 'github-actions' \
           && git commit -m 'build' \
           && git push -f -u origin gh-pages
