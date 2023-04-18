@@ -311,7 +311,20 @@ export class Animator {
     }
 
     public animateFail(): this {
-        this._sequencer.then(this._createFlashSequence(1.5)).play();
+        const mixer = this._getMixer(this._getObjectByName('box'));
+        const action = this._createAnimationAction(mixer, 'rattle', { loop: 'bounce', repeat: 1 });
+        this._sequencer.then(
+            this._createFlashSequence(0.75),
+            new SequenceAction({
+                enter() {
+                    action.stop(); action.play();
+                },
+                update: ({runningTime}) => {
+                    this._touchMixer(mixer);
+                    return runningTime >= (action.getClip().duration / action.timeScale) * 2;
+                }
+            })
+        ).play();
         return this;
     }
 
@@ -379,30 +392,19 @@ export class Animator {
     }
 
     private _animateIdleBoxGlow(): void {
-        const mixer = this._getMixer(this._getObjectByName('light-leak'));
-        const action = this._createAnimationAction(
-            mixer,
-            'light-leak-idle',
-            { loop: 'bounce', blendMode: 'additive' },
-        );
-        action.weight = 0.35;
-        action.timeScale = 0.75;
         const glowMat = this._getMeshByName('light-leak').material as MeshStandardMaterial;
         let initialOpacity = 1;
         this._sequencer.getChannel('box-glow').then(
             new SequenceAction({
                 enter() {
-                    action.play();
                     initialOpacity = glowMat.opacity = 0.75;
                 },
                 update: ({ dt, runningTime }) => {
-                    this._touchMixer(mixer);
                     glowMat.opacity = initialOpacity -
                         (Math.sin(runningTime * Math.PI / 1.75) / 2 + 0.5) * 0.33;
                     return false;
                 },
                 exit() {
-                    mixer.stopAllAction();
                     glowMat.opacity = initialOpacity;
                 }
             }),

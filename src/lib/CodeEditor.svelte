@@ -7,11 +7,13 @@
 </script>
 
 <script lang="ts">
-    import { createEventDispatcher, onMount } from 'svelte';
+    import { createEventDispatcher } from 'svelte';
     import CodeMirror from 'svelte-codemirror-editor';
     import { parser as solidityParser } from '@replit/codemirror-lang-solidity';
     import { oneDarkTheme, oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
     import { LanguageSupport, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
+    import { keymap } from '@codemirror/view';
+    import { vscodeKeymap } from '@replit/codemirror-vscode-keymap';
 
     const dispatch = createEventDispatcher();
 
@@ -21,6 +23,8 @@
     export let actionText: string = '';
     export let busy: boolean = false;
     export let expandAction = ExpandAction.None;
+    let editor: CodeMirror;
+
     const editorLang = new LanguageSupport(StreamLanguage.define(solidityParser), syntaxHighlighting(oneDarkHighlightStyle));
     const editorStyles = {
         '*': { 'font-family': `'Comic Mono', monospace` },
@@ -117,6 +121,8 @@
         styles={editorStyles}
         bind:value={contents}
         theme={oneDarkTheme}
+        extensions={[keymap.of(vscodeKeymap)]}
+        basic={false}
         tabSize={4}
         />
     <div class="cover">

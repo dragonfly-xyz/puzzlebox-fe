@@ -16,7 +16,7 @@ const config = {
 		}),
 		paths: {
 			base: dev ? '' : '/puzzlebox-fe'
-		}
+		},
 	}
 };
 
