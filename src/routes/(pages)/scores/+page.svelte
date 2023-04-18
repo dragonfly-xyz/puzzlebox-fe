@@ -4,16 +4,19 @@
     import { formatScore, getStoredSubmission } from "$lib/util";
     import { onMount } from "svelte";
     import { page } from '$app/stores';
+    import { browser } from "$app/environment";
 
     let scores: Score[] | undefined;
     let submitData: SubmitData | undefined;
 
     $: (async () => {
-        if (!submitData) {
-            scores = await getScores(500);
-        } else {
-            await submitScore(submitData);
-            submitData = undefined;
+        if (browser) {
+            if (!submitData) {
+                scores = await getScores(500);
+            } else {
+                await submitScore(submitData);
+                submitData = undefined;
+            }
         }
     })();
 

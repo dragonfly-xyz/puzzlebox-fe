@@ -4,6 +4,7 @@
     import { formatScore, storeSubmission } from "./util";
     import { PUBLIC_GH_CLIENT_ID, PUBLIC_TW_CLIENT_ID } from '$env/static/public';
     import { page } from '$app/stores';
+    import { onMount } from 'svelte';
     
     const EMOJI_REGIX = emojiRegex();
     const GH_AUTH_URL = 'https://github.com/login/oauth/authorize';
@@ -11,13 +12,16 @@
 
     export let score: number = 0;
     export let solution: string | undefined;
+    let root: HTMLDivElement;
     let submitName: string | undefined = 'foo';
     let submitEmail: string | undefined = 'foo@foo.com';
     let canSubmit: boolean = false;
     let isSigning = false;
+    let termsAgreed = false;
 
     $: canSubmit = !!submitName && isValidName(submitName) &&
-        !!submitEmail && isValidEmail(submitEmail);
+        !!submitEmail && isValidEmail(submitEmail) &&
+        termsAgreed;
 
     function isValidName(s: string): boolean {
         return /^[-/\\@a-z0-9_?!.,]+$/.test(s) || EMOJI_REGIX.test(s);
@@ -49,7 +53,6 @@
     function signInWithTwitter() {
         const pkce = pkceChallenge();
         const key = saveToStorage('twitter', pkce.code_verifier);
-        console.log(pkce);
         const url = new URL(TW_AUTH_URL);
         url.searchParams.append('response_type', 'code');
         url.searchParams.append('client_id', PUBLIC_TW_CLIENT_ID);
@@ -65,15 +68,25 @@
 <style lang="scss">
     @import "@picocss/pico/scss/pico.scss";
     @import "./common.scss";
+
     .component {
-        position: absolute;
-        > *[data-tooltip] {
-            border-bottom: 0;
+        @extend .pixel-corners;
+        
+        background-color: var(--background-color);
+        padding: 1em 2em;
+        width: 42ex;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5em;
+
+        @media (min-width: map-get($breakpoints, "md")) {
+            width: 52ex;
         }
+
         > *:nth-child(1) {
             font-size: 1.25em;
+            margin: 1em 0;
             text-align: center;
-            margin: 0.5em 0;
         }
         .score {
             font-family: 'Silkscreen', monospace;
@@ -88,63 +101,67 @@
             background-color: rgba(255,0,0,0.1);
             border: red 1px solid;
         }
+        input[type=text] {
+            margin-bottom: 0;
+        }
         .hidden {
             display: none;
         }
         button {
             @extend .pixel-corners;
         }
-    }
-    // .component {
-    //     position: absolute;              
-    //     left: 0;
-    //     top: 0;
-    //     width: 100vw;
-    //     height: 100vh;
+        .buttons {
+            display: flex;
+            flex-direction: column;
+        }
+        .terms {
+            display: flex;
+            justify-content: center;
+            margin: 1em;
+            cursor: pointer;
 
-    //     .frame {
-    //         width: 90vw;
-    //         @media (min-width: map-get($breakpoints, 'sm')) {
-    //             width: 10em;
-    //         }
-    //         height: 100%;
-    //     }
-    // }
+            a {
+                text-decoration: underline;
+            }
+        }
+    }
 </style>
 
-<div class="component">
-    <div class="cover">
-
+<div class="component" bind:this={root}>
+    <div>
+        Your score: 🎉<span class="score">{ formatScore(score) }</span>🎉
     </div>
-    <div class="popover">
-        <div>
-            Your score: <span class="score">{ formatScore(score) }</span>
+    <div>
+        <div>Scoreboard Name</div>
+        <input
+            type="text"
+            placeholder="name"
+            maxlength="24"
+            bind:value={submitName}
+            class:error={submitName && !isValidName(submitName)}
+        />
+    </div>
+    <div>
+        <div>Contact Email</div>
+        <input
+            type="text"
+            placeholder="For prizes/offers!"
+            maxlength="24"
+            bind:value={submitEmail}
+            class:error={submitEmail && !isValidEmail(submitEmail)}
+        />
+    </div>
+    <div class="terms">
+        <div on:click={() => termsAgreed = !termsAgreed}>
+            <input type="checkbox" bind:checked={termsAgreed} /> Agree to <a href="terms" target="_blank">terms</a>
         </div>
-        <div>
-            <div>Scoreboard Name</div>
-            <input
-                type="text"
-                placeholder="name"
-                maxlength="24"
-                bind:value={submitName}
-                class:error={submitName && !isValidName(submitName)}
-            />
-        </div>
-        <div data-tooltip="Where can we reach you about prizes/offers?">
-            <div>Contact Email</div>
-            <input
-                type="text"
-                placeholder="email"
-                maxlength="24"
-                bind:value={submitEmail}
-                class:error={submitEmail && !isValidEmail(submitEmail)}
-            />
-        </div>
+    </div>
+    <div class="buttons">
         <button
-             class="github"
-             aria-busy={!!isSigning}
-             disabled={!canSubmit}
-             on:click|preventDefault={signInWithGithub}>
+                class="github"
+                aria-busy={!!isSigning}
+                disabled={!canSubmit}
+                on:click|preventDefault={signInWithGithub}>
                 <img class="icon" src="gh-icon.svg" />
                 Sign with Github
         </button>
@@ -152,7 +169,7 @@
             class="twitter"
             aria-busy={!!isSigning}
             disabled={!canSubmit}
-             on:click|preventDefault={signInWithTwitter}>
+                on:click|preventDefault={signInWithTwitter}>
                 <img class="icon" src="tw-icon.svg" />
                 Sign with Twitter
         </button>

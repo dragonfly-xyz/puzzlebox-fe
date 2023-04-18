@@ -13,6 +13,7 @@
     import { onMount } from 'svelte';
     import { scrollIntoView } from 'seamless-scroll-polyfill';
     import ScoreSubmit from '$lib/ScoreSubmit.svelte';
+    import Modal from '$lib/Modal.svelte';
 
     enum SolveStep {
         None = 'Solve',
@@ -24,12 +25,11 @@
     let account: Account;
     let solveStep: SolveStep = SolveStep.None;
     let solutionError: string | undefined;
-    let simResultsWithScore: SimResultsWithScore | undefined = { score: 100 };
-    let signScorePromise: Promise<any> | undefined;
+    let simResultsWithScore: SimResultsWithScore | undefined;
     let solutionCode = solutionStubCode;
     let puzzleRenderingEl: HTMLElement | undefined;
     let challengeCodeExpanded = false;
-    let isSubmitting: boolean = true;
+    let isSubmitting = false;
 
     function copyChallenge({detail: contents}: CustomEvent<string>) {
         navigator.clipboard.writeText(contents);
@@ -71,13 +71,6 @@
             return;
         }
         isSubmitting = true;
-        // const score = simResultsWithScore.score;
-        // if (submitPromise) {
-        //     throw new Error('Alreadying submitting!');
-        // }
-        // submitPromise = submitScore(name, score, 600, solutionCode)
-        //     .then(() => { refreshScores(); })
-        //     .finally(() => submitPromise = undefined);
     }
 
     function expandChallengeCode() {
@@ -110,7 +103,7 @@
     .page {
         display: flex;
         flex-wrap: wrap;
-        gap: 2em 1em;
+        gap: 2.5em 1em;
         justify-content: center;
     }
     .rendering-container {
@@ -153,11 +146,6 @@
         padding-left: 2ex;
         opacity: 0.75;
     }
-    .submit-container {
-    }
-    .submit-container.hidden {
-        display: none;
-    }
 </style>
 
 <div class="page">
@@ -172,7 +160,11 @@
         </div>
     </div>
     <div class="hi-scores">
-        <HiScoreDisplay hiScores={hiScores || []} message={hiScores ? null : 'Loading...'} scrollSpeed={2000} scrollPause={2500}></HiScoreDisplay>
+        <HiScoreDisplay
+            hiScores={hiScores || []}
+            message={hiScores ? null : 'Loading...'}
+            scrollSpeed={2000}
+            scrollPause={2500} />
     </div>
     <div class="challenge code" class:expanded={challengeCodeExpanded}>
         <div class="filename">./PuzzleBox.sol</div>
@@ -195,7 +187,7 @@
             bind:error={solutionError}
         />
     </div>
-    <div class="submit-container" class:hidden={!isSubmitting}>
+    <Modal bind:show={isSubmitting}>
         <ScoreSubmit score={simResultsWithScore?.score} solution={solutionCode} />
-    </div>
+    </Modal>
 </div>
