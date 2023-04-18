@@ -1,10 +1,9 @@
 name: publish-netlify
 on:
   workflow_dispatch:
-# on:
-#   push:
-#     branches:
-#       - main
+  push:
+    branches:
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,23 +14,22 @@ jobs:
           node-version: '19'
       - name: prepare env
         run: echo "${{ secrets.DOT_ENV }}" >> $GITHUB_ENV
-      # - name: install deps
-      #   run: npm i --include=dev
-      # - name: build
-      #   env:
-      #     BASE_PATH: ''
-      #   run: |
-      #     npm run build
-      #     touch build/.nojekyll
-      # - name: commit
-      #   run: |
-      #     git fetch origin gh-pages --depth 1
-      #     && git checkout -f gh-pages
-      #     && git add build
-      #     && git config user.name 'github-actions'
-      #     && git commit -a --amend --no-edit
-      #     && git push -f
-      # - name: publish
-      #   run: curl -X POST -d {} https://api.netlify.com/build_hooks/643e988acdb70966f2fa67cf
+      - name: install deps
+        run: npm i --include=dev
+      - name: build
+        env:
+          BASE_PATH: ''
+        run: |
+          npm run build
+          touch build/.nojekyll
+      - name: commit
+        run: |
+          && git checkout -f --orphan gh-pages
+          && git add build
+          && git config user.name 'github-actions'
+          && git commit -m 'build'
+          && git push -f -u origin gh-paghes
+      - name: publish
+        run: curl -X POST -d {} https://api.netlify.com/build_hooks/643e988acdb70966f2fa67cf
   
         
