@@ -1,4 +1,6 @@
 name: publish-netlify
+on:
+  workflow_dispatch:
 # on:
 #   push:
 #     branches:
