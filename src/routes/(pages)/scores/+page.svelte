@@ -1,3 +1,41 @@
+<script lang="ts" context="module">
+    const GRAVITY = [0, 5];
+    function animateEmojifettis(emojifettis: HTMLSpanElement[] ): NodeJS.Timer {
+        for (const e of emojifettis) {
+            e.style.display = 'inline';
+            e.style.position = 'auto';
+        }
+        const rects = emojifettis.map(e => e.getBoundingClientRect());
+        for (let i = 0; i < rects.length; ++i) {
+            const e = emojifettis[i];
+            const { x, y } = rects[i];
+            e.style.position = 'fixed';
+            e.style.left = `${x}px`;
+            e.style.top = `${y}px`;
+        }
+        const endTime = Date.now() + 5000;
+        const vels = emojifettis.map(e => [(Math.random() - 0.5) * 25, Math.random() * -40]);
+        const offs = emojifettis.map(e => [0,0]);
+        const emojiTimer = setInterval(() => {
+            for (let idx = 0; idx < emojifettis.length; ++idx) {
+                for (let i = 0; i < 2; ++i) {
+                    vels[idx][i] = vels[idx][i] + GRAVITY[i];
+                    offs[idx][i] = offs[idx][i] + vels[idx][i];
+                }
+                emojifettis[idx].style.transform = `translate3d(${offs[idx][0]}px, ${offs[idx][1]}px, 0)`;
+            }
+            if (Date.now() >= endTime) {
+                for (const e of emojifettis) {
+                    e.style.display = 'none';
+                }
+                clearInterval(emojiTimer);
+            }
+        }, 60);
+        return emojiTimer;
+    }
+
+</script>
+
 <script lang="ts">
     import { getScores, submitScore } from "$lib/backend";
     import type { Score, SubmitData } from "$lib/types";
@@ -6,10 +44,14 @@
     import { page } from '$app/stores';
     import { browser } from "$app/environment";
 
+    const EMOJIS = ['🎊', '✨', '🎉', '🏆', '🎈', '🎖️'];
+
     let scores: Score[] | undefined;
     let submitData: SubmitData | undefined;
     let submitKey: string | null | undefined;
     let submitted = false;
+    let emojifettis: HTMLSpanElement[] = [];
+    let emojiTimer: Timer | undefined;
 
     $: (async () => {
         if (browser) {
@@ -23,6 +65,16 @@
             }
         }
     })();
+
+
+    $: {
+        if (emojifettis.length) {
+            if (emojiTimer) {
+                clearInterval(emojiTimer);
+            }
+            emojiTimer = animateEmojifettis(emojifettis);
+        }
+    }
 
     onMount(() => {
         const pageUrl = $page.url;
@@ -71,6 +123,14 @@
     }
     .thanks {
         align-self: center;
+        margin: 1em 0;
+        text-align: center;
+    }
+    .emojifettis {
+        text-align: center;
+        position: relative;
+        top: -1em;
+        height: 0;
     }
     @keyframes blink {
         0% { opacity: 100% };
@@ -82,8 +142,17 @@
 <div class="component">
     <div class="header">HI SCORES</div>
     {#if submitted}
-    <div class="thanks">Thanks for playing! You can <a href="/">try again</a> if you like.</div>
-    {:else if submitData}
+    <div class="thanks">
+        <div class="emojifettis">
+        {#each [...new Array(18)] as _, idx}
+        <span bind:this={emojifettis[idx]}>{ EMOJIS[Math.floor(Math.random() * EMOJIS.length)] }</span>
+        {/each}
+        </div>
+        <!-- TODO: show user rank -->
+        <div>Thanks for playing! <a href="/">Try again</a> if you like!</div>
+    </div>
+    {/if}
+    {#if submitData}
     <div class="loading">Hang tight! We're submitting your score...</div>
     {:else if !scores}
     <div class="loading">Loading...</div>
