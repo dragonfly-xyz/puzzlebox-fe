@@ -79,6 +79,8 @@
         display: flex;
         flex-direction: column;
         gap: 0.5em;
+        height: fit-content;
+        margin: auto;
 
         @media (min-width: map-get($breakpoints, "md")) {
             width: 52ex;

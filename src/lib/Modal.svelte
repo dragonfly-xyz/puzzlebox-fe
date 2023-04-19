@@ -10,29 +10,33 @@
     $: {
         if (root) {
             if (show) {
-                console.log('show');
                 if ($$slots.default) {
                     id = bedCtx.open({
                         content: [...root.children],
+                        onOpen() {
+                            for (const ch of this.content) {
+                                ch.dispatchEvent(new CustomEvent('modal-open', { bubbles: false }));
+                            }
+                        },
                         onClose() {
-                            console.log('sheee');
                             show = false;
                             id = undefined;
+                            for (const ch of this.content) {
+                                ch.dispatchEvent(new CustomEvent('modal-close', { bubbles: false }));
+                            }
                         },
                     });
                 }
             } else if(id) {
-                console.log('hide');
                 bedCtx.close(id);
             }
         }
     }
-
     onDestroy(() => {
         if (id !== undefined) {
             bedCtx.close(id);
         }
-    })
+    });
 </script>
 
 <style lang="scss">

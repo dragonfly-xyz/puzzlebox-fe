@@ -7,11 +7,12 @@
         content: Node[];
         onRequestClose?: () => void;
         onClose?: () => void;
+        onOpen?: (id: number) => void;
     }
 </script>
 
 <script lang="ts">
-    import { onDestroy, setContext } from "svelte";
+    import { onDestroy, onMount, setContext } from "svelte";
 
     let root: HTMLDivElement;
     let body: HTMLBodyElement;
@@ -29,13 +30,17 @@
             }
             modal = details;
             origModalParent = modal.content?.[0]?.parentElement || null;
-            return ++currentModalId;
+            ++currentModalId;
+            if (modal.onOpen) {
+                modal.onOpen(currentModalId);
+            }
+            return currentModalId;
         },
         close(modalId?: number): boolean {
             if (!modal || (modal !== undefined && modalId !== currentModalId)) {
                 return false;
             }
-            const { onClose } = modal;
+            const _modal = modal;
             if (origModalParent) {
                 for (const ch of modal?.content || []) {
                     origModalParent.appendChild(ch);
@@ -44,8 +49,8 @@
             origModalParent = undefined;
             modal = undefined;
             ++currentModalId;
-            if (onClose) {
-                onClose();
+            if (_modal.onClose) {
+                _modal.onClose();
             }
             return true;
         }
@@ -62,7 +67,7 @@
         }
     }
 
-    function onOutsideClick() {
+    function onOutsideClick(e: MouseEvent) {
         if (modal) {
             if (modal.onRequestClose) {
                 modal.onRequestClose();
@@ -72,6 +77,15 @@
         }
     }
 
+    onMount(() => {
+        root.addEventListener('modal-close', (e) => {
+            e.stopPropagation();
+            if (currentModalId) {
+                ctx.close(currentModalId);
+            }
+        });
+    });
+
     onDestroy(() => {
         ctx.close(currentModalId);
     });
@@ -79,26 +93,30 @@
 </script>
 
 <style lang="scss">
+    @keyframes fade-in {
+        0% { opacity: 0; }
+        100% { opacity: 1; }
+    }
     .component {
     }
-    .overlay {
-        display: none;
-    }
     .modal-container {
+        animation: fade-in 0.5s;
         display: none;
     }
     .modal-container.active {
         position: fixed;
         inset: 0;
-        background-color: rgba($color: #340909, $alpha: 0.5);
+        background-color: rgba($color: #340909, $alpha: 0.66);
         display: flex;
         overflow: auto;
     }
     .modal-window {
         margin: auto;
         padding: 2em;
-        align-self: center;
-        justify-self: center;
+        flex: 1 1 100%;
+        display: flex;;
+        width: 100%;
+        height: 100%;
     }
     :global(body.noscroll) {
         overflow: hidden;
@@ -110,9 +128,9 @@
     <div
         class="modal-container"
         class:active={!!modal}
-        on:click={onOutsideClick}
+        on:click|self|stopPropagation={onOutsideClick}
     >
-        <div class="modal-window" bind:this={modalWindow} on:click|stopPropagation>
+        <div class="modal-window" bind:this={modalWindow} on:click|self|stopPropagation={onOutsideClick}>
         </div>
     </div>
 </div>

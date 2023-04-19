@@ -23,7 +23,6 @@
     export let actionText: string = '';
     export let busy: boolean = false;
     export let expandAction = ExpandAction.None;
-    let editor: CodeMirror;
 
     const editorLang = new LanguageSupport(StreamLanguage.define(solidityParser), syntaxHighlighting(oneDarkHighlightStyle));
     const editorStyles = {

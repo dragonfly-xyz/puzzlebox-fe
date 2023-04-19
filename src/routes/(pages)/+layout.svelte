@@ -1,6 +1,20 @@
 <script lang="ts">
     import ModalBed from "$lib/ModalBed.svelte";
     import '@picocss/pico';
+    import Dialogue from '$lib/Dialogue.svelte';
+    import introScript from '$lib/assets/intro-script.txt?raw';
+    import Modal from '$lib/Modal.svelte';
+    import { onMount } from "svelte";
+
+    let isShowingIntro = false;
+
+    onMount(() => {
+        setTimeout(() => {
+            const whenIntroViewed = localStorage.getItem('intro-viewed');
+            isShowingIntro = !whenIntroViewed;
+        }, 1000);
+    })
+
 </script>
 
 <style>
@@ -118,6 +132,7 @@
             </a>
         </div>
         <div class="quick-links">
+            <div><a on:click|stopPropagation|preventDefault={() => isShowingIntro = true}>intro</a></div>
             <div><a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">github</a></div>
             <div><a href="https://twitter.com/merklejerk">support</a></div>
             <div><a href="https://jobs.dragonfly.xyz/jobs">jobs</a></div>
@@ -131,4 +146,7 @@
             <a class="dfly" href="https://dragonfly.xyz" target="_blank">&gt;|&lt;</a>
         </div>
     </footer>
+    <Modal bind:show={isShowingIntro}>
+        <Dialogue script={introScript} />
+    </Modal>
 </ModalBed>

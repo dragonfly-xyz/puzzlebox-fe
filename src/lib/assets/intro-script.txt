@@ -1,0 +1,19 @@
+[You are standing in a dark and foreboding room. A shadowy figure is sitting at a computer, typing furiously.]
+Gensler: "At last, it is finished. The Puzzlebox is complete."
+[You step forward, curious.]
+You: "What is the Puzzlebox?"
+Gensler: "It is a device of my own creation. It is a puzzle, a riddle, a challenge. But it is also much more than that. It is a weapon. A weapon that can destroy all of crypto."
+You: "What? Why would you do such a thing?"
+Gensler: "Because I can. Because I have the power. And because I believe that crypto is a mistake. It is a dangerous technology that will only lead to chaos and destruction. With the Puzzlebox, I can put an end to it all."
+You: "But that's not fair! crypto has the potential to do so much good. It can empower people. You can't just destroy it!"
+Gensler: "I can, and I will. And there is nothing you can do to stop me."
+[The shadowy figure stands up and towers over you.]
+Gensler: "Now, if you will excuse me, I have work to do."
+[The shadowy figure turns and walks away, leaving you alone in the dark room.]
+You: "No! You can't do this! I won't let you!"
+[You run after the shadowy figure, but it is too late. The figure has already disappeared into the darkness.]
+You: "Damn it! I have to stop him! I have to find a way to stop him before it's too late!"
+[You return to the dark room and examine the Puzzlebox. It radiates a mysterious light and you can sense odd vibrations coming from beneath its surface.]
+You: "This is it. This is the Puzzlebox. Opening it must be the key to stopping him."
+[After closer investigation you discover that the Puzzlebox is actually an intertwined web of smart contract challenges.]
+You: "Maybe if I defeat some of these Solidity challenges with a smart contract of my own making, I can at least slow him down..."

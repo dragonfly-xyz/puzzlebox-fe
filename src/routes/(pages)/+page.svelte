@@ -81,7 +81,7 @@
         hiScores = await getScores(16);
     }
 
-    onMount(async () => {
+    onMount(() => {
         const pollScores = async () => {
             let nextPollDelay = 60 * 10 * 1000;
             try {
@@ -122,15 +122,12 @@
         }
     }
     .code {
-        width: map-get($breakpoints, "xs");
-        @media (min-width: map-get($breakpoints, "lg")) {
-            width: map-get($breakpoints, "lg");
-        }
+        width: map-get($breakpoints, "sm");
         @media (min-width: map-get($breakpoints, "md")) {
             width: map-get($breakpoints, "md");
         }
-        @media (min-width: map-get($breakpoints, "sm")) {
-            width: map-get($breakpoints, "sm");
+        @media (min-width: map-get($breakpoints, "lg")) {
+            width: map-get($breakpoints, "lg");
         }
         min-height: 12em;
         max-height: 32em;
