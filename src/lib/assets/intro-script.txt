@@ -12,7 +12,7 @@ Gensler: "Now, if you will excuse me, I have work to do."
 [The shadowy figure turns and walks away, leaving you alone in the dark room.]
 You: "No! You can't do this! I won't let you!"
 [You run after the shadowy figure, but it is too late. The figure has already disappeared into the darkness.]
-You: "Damn it! I have to stop him! I have to find a way to stop him before it's too late!"
+You: "Damn it! I have to find a way to stop him before it's too late!"
 [You return to the dark room and examine the Puzzlebox. It radiates a mysterious light and you can sense odd vibrations coming from beneath its surface.]
 You: "This is it. This is the Puzzlebox. Opening it must be the key to stopping him."
 [After closer investigation you discover that the Puzzlebox is actually an intertwined web of smart contract challenges.]
