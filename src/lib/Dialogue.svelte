@@ -117,16 +117,20 @@
         > .content {
             @extend .pixel-corners;
             background-color: #282c34;
-            overflow: hidden;
             max-height: 100%;
             padding: 2em 0.5em 0.5em 0.5em;
-
+            
             > div {
-                overflow: hidden;
+                overflow: auto;
+                -ms-overflow-style: none;
+                scrollbar-width: none;
                 max-height: 100%;
                 > div {
                     height: fit-content;
                 }
+            }
+            > div::-webkit-scrollbar {
+                    display: none;
             }
         }
     }
@@ -147,6 +151,10 @@
         > .profile > img {
             height: 10em;
             user-select: none;
+            font-size: 0.75em;
+            @media (min-width: map-get($breakpoints, "md")) {
+                font-size: 1em;
+            }
         }
         > div:nth-child(2) {
             align-self: center;

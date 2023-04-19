@@ -10,8 +10,10 @@
 
     onMount(() => {
         setTimeout(() => {
-            const whenIntroViewed = localStorage.getItem('intro-viewed');
-            isShowingIntro = !whenIntroViewed;
+            if (!isShowingIntro) {
+                const whenIntroViewed = localStorage.getItem('intro-viewed');
+                isShowingIntro = !whenIntroViewed;
+            }
         }, 1000);
     })
 
