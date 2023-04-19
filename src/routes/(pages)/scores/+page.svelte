@@ -51,7 +51,7 @@
     let submitKey: string | null | undefined;
     let submitted = false;
     let emojifettis: HTMLSpanElement[] = [];
-    let emojiTimer: Timer | undefined;
+    let emojiTimer: NodeJS.Timer | undefined;
 
     $: (async () => {
         if (browser) {
@@ -131,6 +131,7 @@
         position: relative;
         top: -1em;
         height: 0;
+        font-family: auto;
     }
     @keyframes blink {
         0% { opacity: 100% };

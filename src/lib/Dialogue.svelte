@@ -182,6 +182,7 @@
         border-radius: 100%;
         height: fit-content;
         width: fit-content;
+        font-family: auto;
     }
     .exit:not(:hover) {
         opacity: 0.5;
