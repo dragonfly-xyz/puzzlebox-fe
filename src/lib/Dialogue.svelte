@@ -21,6 +21,7 @@
     let currentLineIdx = -1;
     let printTimer: NodeJS.Timer | undefined;
     let component: HTMLElement;
+    let confirmButton: HTMLElement;
 
     function printDialogue() {
         if (currentLineIdx < 0) {
@@ -30,9 +31,13 @@
             const d = dialogueLines[currentLineIdx];
             d.printedLine = d.line.slice(0, d.printedLine.length + PRINT_SPEED);
             dialogueLines = dialogueLines;
-            d.el.scrollIntoView(false);
             if (d.printedLine === d.line) {
                 ++currentLineIdx;
+            }
+            if (currentLineIdx >= dialogueLines.length) {
+                setTimeout(() => confirmButton.scrollIntoView(false));
+            } else {
+                d.el.scrollIntoView(false);
             }
         }
     }
@@ -118,7 +123,7 @@
             @extend .pixel-corners;
             background-color: #282c34;
             max-height: 100%;
-            padding: 2em 0.5em 0.5em 0.5em;
+            padding: 0.5em 0.5em 0.5em 0.5em;
             
             > div {
                 overflow: auto;
@@ -183,12 +188,20 @@
         height: fit-content;
         width: fit-content;
         font-family: auto;
+        animation: fade-in 10s ease-in;
     }
     .exit:not(:hover) {
         opacity: 0.5;
         background-color: rgba(0, 0, 0, 0);
     }
-
+    .confirm > button {
+        @extend .pixel-corners;
+        margin: auto;
+        width: fit-content;
+    }
+    .confirm:not(.visible) > button {
+        display: none;
+    }
 </style>
 
 <div class="component" bind:this={component}>
@@ -216,7 +229,14 @@
                 {/if}
                 {/each}
             </div>
+            <div
+                class="confirm"
+                class:visible={currentLineIdx >= dialogueLines.length}
+                on:click|preventDefault|stopPropagation={onExit}
+            >
+                <button bind:this={confirmButton}>Let's go!</button>
+            </div>
         </div>
     </div>
-    <button class="exit" on:click|preventDefault|stopPropagation={onExit}>🗙</button>
+    <!-- <button class="exit" on:click|preventDefault|stopPropagation={onExit}>🗙</button> -->
 </div>

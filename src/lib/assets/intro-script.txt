@@ -16,4 +16,4 @@ You: "Damn it! I have to find a way to stop him before it's too late!"
 [You return to the dark room and examine the Puzzlebox. It radiates a mysterious light and you can sense odd vibrations coming from beneath its surface.]
 You: "This is it. This is the Puzzlebox. Opening it must be the key to stopping him."
 [After closer investigation you discover that the Puzzlebox is actually an intertwined web of smart contract challenges.]
-You: "Maybe if I defeat some of these Solidity challenges with a smart contract of my own making, I can at least slow him down..."
+You: "Hmm, maybe if I solve some of these challenges with a smart contract of my own making I can at least slow him down..."
