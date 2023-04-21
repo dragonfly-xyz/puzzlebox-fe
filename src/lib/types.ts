@@ -4,6 +4,8 @@ export interface Score {
     name: string;
     score: number;
     profile: string;
+    rank: number;
+    timestamp: number;
 }
 
 export interface SimResultsWithScore {

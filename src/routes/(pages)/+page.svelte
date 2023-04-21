@@ -78,7 +78,7 @@
     }
 
     async function refreshScores(): Promise<void> {
-        hiScores = await getScores(16);
+        hiScores = await getScores(0, 16);
     }
 
     onMount(() => {
