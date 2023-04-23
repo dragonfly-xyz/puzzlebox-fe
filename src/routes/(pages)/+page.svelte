@@ -14,6 +14,8 @@
     import { scrollIntoView } from 'seamless-scroll-polyfill';
     import ScoreSubmit from '$lib/ScoreSubmit.svelte';
     import Modal from '$lib/Modal.svelte';
+    import IoIosArrowUp from 'svelte-icons/io/IoIosArrowUp.svelte'
+    import IoIosArrowDown from 'svelte-icons/io/IoIosArrowDown.svelte'
 
     enum SolveStep {
         None = 'Solve',
@@ -30,6 +32,7 @@
     let puzzleRenderingEl: HTMLElement | undefined;
     let challengeCodeExpanded = false;
     let isSubmitting = false;
+    let isShowingTip = false;
 
     function copyChallenge({detail: contents}: CustomEvent<string>) {
         navigator.clipboard.writeText(contents);
@@ -102,12 +105,15 @@
 
     .page {
         display: flex;
-        flex-wrap: wrap;
-        gap: 2.5em 1em;
+        flex-direction: column;
+        gap: 1em 1em;
         justify-content: center;
-    }
-    .rendering-container {
-        flex: 1;
+        @media (min-width: map-get($breakpoints, "lg")) {
+            display: grid;
+            grid: min-content max-content max-content / 1fr 1fr;
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
     }
     .rendering {
         width: 21.33em;
@@ -115,33 +121,56 @@
         margin: auto;
     }
     .hi-scores {
-        max-height: 16em;
-        flex: 100%;
+        height: 16em;
+        // flex: 100%;
         @media (min-width: map-get($breakpoints, "lg")) {
             flex: 1;
         }
     }
+    .tip {
+        grid-column: span 2;
+        display: flex;
+        font-size: 0.75em;
+        > .hide-btn {
+            gap: 1ex;
+            align-items: center;
+            white-space: nowrap;
+            font-weight: bold;
+            height: 1em;
+            margin: 0 0.5em 1em 0;
+            flex: 0 0 auto;
+            display: flex;
+        }
+        > .message {
+            max-height: 24em;
+            overflow-y: hidden;
+            transition: max-height 0.5s;
+        }
+        > .message.hidden {
+            max-height: 0;
+        }
+    }
     .code {
-        width: map-get($breakpoints, "sm");
-        @media (min-width: map-get($breakpoints, "md")) {
-            width: map-get($breakpoints, "md");
+        grid-column: span 2;
+        > .filename {
+            padding-left: 2ex;
+            opacity: 0.75;
         }
-        @media (min-width: map-get($breakpoints, "lg")) {
-            width: map-get($breakpoints, "lg");
+        > :global(*:last-child) {
+            min-height: 24em;
+            max-height: 32em;
+            height: 1px;
         }
-        min-height: 12em;
-        max-height: 32em;
-        flex: 100%;
     }
     .challenge.expanded {
-        max-height: fit-content;
+        > :global(*:last-child) {
+            min-height: 24em;
+            max-height: initial;
+            height: auto;
+        }
     }
     .solution {
         max-height: fit-content;
-    }
-    .filename {
-        padding-left: 2ex;
-        opacity: 0.75;
     }
 </style>
 
@@ -163,9 +192,33 @@
             scrollSpeed={2000}
             scrollPause={2500} />
     </div>
+    <div class="tip">
+        <a
+            class="hide-btn"
+            on:click|preventDefault|stopPropagation="{() => isShowingTip = !isShowingTip}">
+            {#if isShowingTip}
+                <div>Hide Tip</div><IoIosArrowUp />
+                {:else}
+                <div>Show Tip</div><IoIosArrowDown />
+            {/if}
+        </a>
+        <div class="message" class:hidden={!isShowingTip}>
+            The puzzlebox is defined by and configured through the following contracts.
+            It is made up of several intertwined EVM challenges.
+            The box is fully unlocked when the <b>Open</b> event is emitted.
+            Scores are awarded per challenge so even partial solutions will put you on the board.
+            This <a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">repo</a> is a foundry project
+            where you can iterate on and test your solution offline.
+        </div>
+    </div>
     <div class="challenge code" class:expanded={challengeCodeExpanded}>
-        <div class="filename">./PuzzleBox.sol</div>
+        <div class="filename">
+            <a href="https://github.com/dragonfly-xyz/puzzlebox-ctf/blob/main/src/PuzzleBox.sol">
+                ./PuzzleBox.sol
+            </a>
+        </div>
         <CodeEditor
+            
             readOnly
             contents={challengeCode}
             on:action={copyChallenge}
@@ -175,7 +228,11 @@
         />
     </div>
     <div class="solution code">
-        <div class="filename">./Solution.sol</div>
+        <div class="filename">
+            <a href="https://github.com/dragonfly-xyz/puzzlebox-ctf/blob/main/src/PuzzleBoxSolution.sol">
+                ./Solution.sol
+            </a>
+        </div>
         <CodeEditor
             bind:contents={solutionCode}
             on:action={onSolve}

@@ -52,16 +52,14 @@
 
     .component {
         @extend .pixel-corners;
-        height: 100%;
         position: relative;
         cursor: text;
     }
 
     .component > :global(.pz-code-editor) {
         box-sizing: border-box;
-        height: 100%;
         color: #000;
-        min-height: 10em;
+        height: 100%;
     }
 
     .component > :global(.codemirror-wrapper > .cm-editor) {

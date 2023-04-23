@@ -37,6 +37,7 @@
 		"seamless-scroll-polyfill": "^2.3.4",
 		"solc": "^0.8.19",
 		"svelte-codemirror-editor": "^1.1.0",
+		"svelte-icons": "^2.1.0",
 		"svelte-sequential-preprocessor": "^1.0.0",
 		"three": "^0.150.1",
 		"troika-worker-utils": "^0.47.0",
