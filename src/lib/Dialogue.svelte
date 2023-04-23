@@ -146,20 +146,24 @@
         padding: 1em;
     }
     .speech {
-        display: flex;
-        gap: 2ex;
+        overflow: hidden;
+        margin: 0 0 1em 0;
+        padding-top: 1em;
         > .profile {
-            flex-shrink: 0;
-            flex-grow: 0;
+            margin-top: -2em;
+            float: left;
             animation: fade-in 1s;
-        }
-        > .profile > img {
-            height: 10em;
+            height: 7em;
             user-select: none;
             font-size: 0.75em;
             @media (min-width: map-get($breakpoints, "md")) {
-                font-size: 1em;
+                height: 10em;
             }
+        }
+        > .profile::after {
+            clear: both;
+            content: "";
+            display: block;
         }
         > div:nth-child(2) {
             align-self: center;
@@ -173,9 +177,13 @@
         color: #f66f55ff;
         flex-direction: row-reverse;
         text-align: right;
-        > .profile > img {
-            height: 7em;
-            margin: 0.75em 0;
+        > .profile {
+            float: right;
+            height: 5.5em;
+            margin: 0 2ex;
+            @media (min-width: map-get($breakpoints, "md")) {
+                height: 7em;
+            }
         }
     }
     .hidden {
@@ -221,10 +229,8 @@
                     class:bad={d.actor === Actor.BadGuy}
                     bind:this={d.el}
                 >
-                    <div class="profile">
-                        <img src={d.actor === Actor.GoodGuy ? "/good-guy.png" : "/bad-guy.png"} />
-                    </div>
-                    <div>{ d.printedLine }</div>
+                    <img class="profile" src={d.actor === Actor.GoodGuy ? "/good-guy.png" : "/bad-guy.png"} />
+                    { d.printedLine }
                 </div>
                 {/if}
                 {/each}
