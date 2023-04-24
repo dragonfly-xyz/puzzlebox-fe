@@ -219,7 +219,7 @@
                     where you can iterate on and test your solution offline.
                 </li>
                 <li>
-                    Challenge runs from May 5 00:00 UTC to May 7 00:00 UTC.
+                    Challenge runs from May 6 00:00 UTC to May 8 00:00 UTC.
                     Three winning submissions will be chosen: one highest score, one fastest,
                     and one most creative. Eligible winners will be awarded one <strong>Milady NFT</strong>.
                 </li>
