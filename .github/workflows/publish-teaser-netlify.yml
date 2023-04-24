@@ -1,0 +1,35 @@
+name: publish-netlify
+on:
+  push:
+    branches:
+      - teaser
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '19'
+      - name: prepare env
+        run: echo "${{ secrets.DOT_ENV }}" >> $GITHUB_ENV
+      - name: install deps
+        run: npm i --include=dev
+      - name: build
+        env:
+          BASE_PATH: ''
+        run: |
+          npm run build
+          touch build/.nojekyll
+      - name: commit
+        run: |
+          git checkout -f --orphan build/teaser \
+          && git reset \
+          && git add -f build \
+          && git config user.name 'github-actions' \
+          && git config user.email 'actions@github.com' \
+          && git commit -m 'build' \
+          && git push -f -u origin build/teaser
+  
+        
