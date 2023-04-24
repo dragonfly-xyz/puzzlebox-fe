@@ -129,8 +129,10 @@
     }
     .tip {
         grid-column: span 2;
+        flex-direction: column;
         display: flex;
         font-size: 0.75em;
+        align-items: center;
         > .hide-btn {
             gap: 1ex;
             align-items: center;
@@ -142,7 +144,7 @@
             display: flex;
         }
         > .message {
-            max-height: 24em;
+            max-height: 64em;
             overflow-y: hidden;
             transition: max-height 0.5s;
         }
@@ -197,18 +199,35 @@
             class="hide-btn"
             on:click|preventDefault|stopPropagation="{() => isShowingTip = !isShowingTip}">
             {#if isShowingTip}
-                <div>Hide Tip</div><IoIosArrowUp />
+                <div>Hide Tips</div><IoIosArrowUp />
                 {:else}
-                <div>Show Tip</div><IoIosArrowDown />
+                <div>Show Tips</div><IoIosArrowDown />
             {/if}
         </a>
         <div class="message" class:hidden={!isShowingTip}>
-            The puzzlebox is defined by and configured through the following contracts.
-            The puzzle is made up of several, intertwined EVM challenges.
-            The box is fully unlocked when the <b>Open</b> event is emitted.
-            Scores are awarded per challenge so even partial solutions will put you on the board.
-            <a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">Here</a> is a foundry project
-            where you can iterate on and test your solution offline.
+            <ul>
+                <li>
+                    The puzzlebox is defined by and configured through the following contracts,
+                    which present multiple, interconnected EVM challenges you must solve to in
+                    order to <strong>Open</strong> the box and save crypto!
+                </li>
+                <li>
+                    Scores are awarded per challenge so even partial solutions will put you on the board.
+                </li>
+                <li>
+                    <a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">Here</a> is a foundry project
+                    where you can iterate on and test your solution offline.
+                </li>
+                <li>
+                    Challenge runs from May 5 00:00 UTC to May 7 00:00 UTC.
+                    Three winning submissions will be chosen: one highest score, one fastest,
+                    and one most creative. Eligible winners will be awarded one <strong>Milady NFT</strong>.
+                </li>
+                <li>
+                    Hackers can compete solo or in teams, but not both.
+                    See <a href="/terms">Rules</a> for more information.
+                </li>
+            </ul>
         </div>
     </div>
     <div class="challenge code" class:expanded={challengeCodeExpanded}>
