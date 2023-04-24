@@ -204,10 +204,10 @@
         </a>
         <div class="message" class:hidden={!isShowingTip}>
             The puzzlebox is defined by and configured through the following contracts.
-            It is made up of several intertwined EVM challenges.
+            The puzzle is made up of several, intertwined EVM challenges.
             The box is fully unlocked when the <b>Open</b> event is emitted.
             Scores are awarded per challenge so even partial solutions will put you on the board.
-            This <a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">repo</a> is a foundry project
+            <a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">Here</a> is a foundry project
             where you can iterate on and test your solution offline.
         </div>
     </div>
