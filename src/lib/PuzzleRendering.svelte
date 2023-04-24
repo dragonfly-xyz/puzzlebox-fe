@@ -20,7 +20,6 @@
     import { createEventDispatcher } from 'svelte';
     import { Animator } from './animator';
     import type { SimResultsWithScore } from './types';
-    import { formatScore } from './util';
     import { onMount, onDestroy } from 'svelte';
     import { animateFromResults } from './animator-utils';
 
@@ -222,20 +221,5 @@
 
 <div class="component" bind:this={el}>
     <div class="cover" class:active={isPrompting} on:click|stopPropagation={() => {isPrompting = false}}>
-        <div class="box" on:click|stopPropagation>
-            <div>
-                Your score: <span class="score">{ formatScore(simResultsWithScore?.score || 0) }</span>
-            </div>
-            <div>
-                <button
-                    class="pixel-button"
-                    on:click|stopPropagation={onSubmitScore}>
-                        Submit
-                </button>
-                <button class="pixel-button" on:click|stopPropagation={() => isPrompting = false}>
-                    Nah
-                </button>
-            </div>
-        </div>
     </div>
 </div>
