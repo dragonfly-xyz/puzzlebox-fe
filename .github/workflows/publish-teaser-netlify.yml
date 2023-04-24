@@ -31,5 +31,8 @@ jobs:
           && git config user.email 'actions@github.com' \
           && git commit -m 'build' \
           && git push -f -u origin build/teaser
+      - name: publish
+        run: curl -X POST -d {} https://api.netlify.com/build_hooks/6446c3cfb7d23d2062f1cbec
   
         
+
