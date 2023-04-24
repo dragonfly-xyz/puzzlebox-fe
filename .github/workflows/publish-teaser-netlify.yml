@@ -1,4 +1,4 @@
-name: publish-netlify
+name: publish-teaser-netlify
 on:
   push:
     branches:
