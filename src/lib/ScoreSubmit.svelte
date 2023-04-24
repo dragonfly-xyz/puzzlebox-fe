@@ -13,8 +13,8 @@
     export let score: number = 0;
     export let solution: string | undefined;
     let root: HTMLDivElement;
-    let submitName: string | undefined = 'foo';
-    let submitEmail: string | undefined = 'foo@foo.com';
+    let submitName: string | undefined;
+    let submitEmail: string | undefined;
     let canSubmit: boolean = false;
     let isSigning = false;
     let termsAgreed = false;
