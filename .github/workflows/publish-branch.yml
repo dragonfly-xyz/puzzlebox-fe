@@ -8,5 +8,5 @@ jobs:
   publish:
     uses: ./.github/workflows/publish.yml
     with:
-      build_branch: build/ctf
+      build_branch: build/teaser
     secrets: inherit
