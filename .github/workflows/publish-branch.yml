@@ -2,7 +2,7 @@ name: publish-branch
 on:
   push:
     branches:
-      - main
+      - teaser
   workflow_dispatch:
 jobs:
   publish:
