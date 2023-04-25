@@ -1,9 +1,15 @@
-name: publish-netlify
+name: publish
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      build_branch:
+        type: string
+        default: build/public
+  workflow_call:
+    inputs:
+      build_branch:
+        type: string
+        default: build/public
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,14 +30,12 @@ jobs:
           touch build/.nojekyll
       - name: commit
         run: |
-          git checkout -f --orphan build/ctf \
+          git checkout -f --orphan ${{ inputs.build_branch }} \
           && git reset \
           && git add -f build \
           && git config user.name 'github-actions' \
           && git config user.email 'actions@github.com' \
           && git commit -m 'build' \
-          && git push -f -u origin build/ctf
-      - name: publish
-        run: curl -X POST -d {} https://api.netlify.com/build_hooks/643e988acdb70966f2fa67cf
+          && git push -f -u origin ${{ inputs.build_branch }}
   
         
