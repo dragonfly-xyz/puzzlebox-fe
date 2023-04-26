@@ -19,8 +19,7 @@
 
 </script>
 
-<style>
-
+<style lang="scss">
     @font-face {
         font-family: 'Superscript';
         src: url('/SUPERSCR.TTF') format('truetype');
@@ -111,13 +110,20 @@
     }
     footer {
         display: flex;
-        flex-direction: column;
-        align-items: end;
+        justify-content: space-between;
         padding: 0 2em 1em 2em;
-    }
-    footer .dfly {
-        letter-spacing: -0.25ex;
-        outline: 0;
+        > .terms {
+            a {
+                font-size: 0.75em;
+            }
+            > *:not(:last-child)::after {
+                content: ' • ';
+            }
+        }
+        > .company >.logo {
+            letter-spacing: -0.25ex;
+            outline: 0;
+        }
     }
     main {
         margin: auto;
@@ -144,8 +150,12 @@
         <slot></slot>
     </main>
     <footer>
-        <div>
-            <a class="dfly" href="https://dragonfly.xyz" target="_blank">&gt;|&lt;</a>
+        <div class="terms">
+            <span><a href="/privacy" target="_blank">Privacy</a></span>
+            <span><a href="/rules" target="_blank">Rules</a></span>
+        </div>
+        <div class="company">
+            <a class="logo" href="https://dragonfly.xyz" target="_blank">&gt;|&lt;</a>
         </div>
     </footer>
     <Modal bind:show={isShowingIntro}>

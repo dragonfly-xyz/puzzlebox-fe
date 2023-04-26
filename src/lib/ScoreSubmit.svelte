@@ -156,7 +156,7 @@
     </div>
     <div class="terms">
         <div on:click={() => termsAgreed = !termsAgreed}>
-            <input type="checkbox" bind:checked={termsAgreed} /> Agree to <a href="terms" target="_blank" on:click|stopPropagation>terms</a>
+            <input type="checkbox" bind:checked={termsAgreed} /> Agree to <a href="rules" target="_blank" on:click|stopPropagation>terms</a>
         </div>
     </div>
     <div class="buttons">
