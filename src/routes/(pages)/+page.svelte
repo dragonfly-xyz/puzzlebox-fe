@@ -51,6 +51,10 @@
         height: 16em;
         margin: auto;
         position: relative;
+        > :global(*):first-child {
+            opacity: 0.4;
+            pointer-events: none;
+        }
     }
     .countdown {
         font-family: 'Silkscreen Bold', monospace;
