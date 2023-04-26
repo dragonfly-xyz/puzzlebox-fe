@@ -228,7 +228,7 @@
                 </li>
                 <li>
                     Hackers can compete solo or in teams, but not both.
-                    See <a href="/terms">Rules</a> for more information.
+                    See <a href="/rules">Rules</a> for more information.
                 </li>
             </ul>
         </div>

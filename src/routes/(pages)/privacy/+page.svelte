@@ -10,5 +10,5 @@
     }
 </style>
 <div class="page">
-    <iframe src="terms/privacy.html" />
+    <iframe src="/terms/privacy.html" />
 </div>

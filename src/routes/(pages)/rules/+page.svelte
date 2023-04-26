@@ -10,5 +10,5 @@
     }
 </style>
 <div class="page">
-    <iframe src="terms/rules.html" />
+    <iframe src="/terms/rules.html" />
 </div>
