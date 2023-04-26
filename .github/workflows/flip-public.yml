@@ -1,0 +1,20 @@
+name: flip-public
+on:
+  workflow_dispatch:
+    inputs:
+      src_ref:
+        type: string
+        required: true
+  repository_dispatch:
+    types: [flip]
+jobs:
+  flip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: flip
+        run: |
+          git fetch \
+          && git checkout -f --orphan build/public \
+          && git reset --hard "origin/${{ github.event.client_payload.src_ref || inputs.src_ref }}" -- \
+          && git push -fu origin build/public
