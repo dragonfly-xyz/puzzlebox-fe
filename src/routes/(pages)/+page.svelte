@@ -151,6 +151,9 @@
         > .message.hidden {
             max-height: 0;
         }
+        li {
+            font-size: 0.85em;
+        }
     }
     .code {
         grid-column: span 2;
