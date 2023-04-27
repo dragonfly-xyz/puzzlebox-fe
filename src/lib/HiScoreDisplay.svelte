@@ -118,7 +118,7 @@
 </style>
 
 <div class="component">
-    <div class="header"><a href="scores" target="_blank">HI SCORES</a></div>
+    <div class="header"><a href="scores">HI SCORES</a></div>
     <div class="clip" bind:this={scoresElem}>
         {#if message}
         <div class="message">{ message }</div>

@@ -44,6 +44,7 @@
     import { page } from '$app/stores';
     import { browser } from "$app/environment";
     import { scrollIntoView } from "seamless-scroll-polyfill";
+    import Modal from "$lib/Modal.svelte";
 
     const EMOJIS = ['🎊', '✨', '🎉', '🏆', '🎈', '🎖️'];
     const MAX_COUNT = 500;
@@ -110,6 +111,9 @@
 </script>
 
 <style lang="scss">
+    @import "@picocss/pico/scss/pico.scss";
+    @import "$lib/common.scss";
+
     .component {
         display: flex;
         flex-direction: column;
@@ -156,6 +160,80 @@
         height: 0;
         font-family: auto;
     }
+    .submit-popup {
+        @extend .pixel-corners;
+        
+        background-color: var(--background-color);
+        padding: 2em 2em;
+        width: 42ex;
+        display: flex;
+        flex-direction: column;
+        height: fit-content;
+        margin: auto;
+        justify-content: center;
+        align-items: center;
+
+        @media (min-width: map-get($breakpoints, "md")) {
+            width: 52ex;
+        }
+
+        .spinner,
+        .spinner:before,
+        .spinner:after {
+            width: 2.5em;
+            height: 2.5em;
+            -webkit-animation-fill-mode: both;
+            animation-fill-mode: both;
+            -webkit-animation: load7 1.8s infinite ease-in-out;
+            animation: load7 1.8s infinite ease-in-out;
+        }
+        .spinner {
+            color: var(--primary);
+            font-size: 0.5em;
+            margin: 1em auto;
+            position: relative;
+            text-indent: -9999em;
+            -webkit-transform: translateZ(0);
+            -ms-transform: translateZ(0);
+            transform: translateZ(0);
+            -webkit-animation-delay: -0.16s;
+            animation-delay: -0.16s;
+        }
+        .spinner:before,
+        .spinner:after {
+            content: '';
+            position: absolute;
+            top: 0;
+        }
+        .spinner:before {
+            left: -3.5em;
+            -webkit-animation-delay: -0.32s;
+            animation-delay: -0.32s;
+        }
+        .spinner:after {
+            left: 3.5em;
+        }
+        @-webkit-keyframes load7 {
+            0%,
+            80%,
+            100% {
+                box-shadow: 0 2.5em 0 -1.3em;
+            }
+            40% {
+                box-shadow: 0 2.5em 0 0;
+            }
+        }
+        @keyframes load7 {
+            0%,
+            80%,
+            100% {
+                box-shadow: 0 2.5em 0 -1.3em;
+            }
+            40% {
+                box-shadow: 0 2.5em 0 0;
+            }
+        }
+    }
     @keyframes blink {
         0% { opacity: 100% };
         50% { opacity: 15%; }
@@ -165,6 +243,12 @@
 
 <div class="component" bind:this={component}>
     <div class="header">HI SCORES</div>
+    <Modal show={!!submitData} captive={true}>
+        <div class="submit-popup">
+            <div class="message">submitting your score...</div>
+            <div class="spinner">.</div>
+        </div>
+    </Modal>
     {#if submitResult}
     <div class="thanks">
         <div class="emojifettis">
@@ -175,8 +259,6 @@
         <!-- TODO: show user rank -->
         <div>Thanks for playing! Wanna <a href="/">try again</a>?</div>
     </div>
-    {:else if submitData}
-    <div class="loading">Uploading score...</div>
     {:else if !scores}
     <div class="loading">Loading scores...</div>
     {/if}

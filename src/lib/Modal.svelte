@@ -4,6 +4,7 @@
 
     const bedCtx = getContext('modal-bed') as ModalBedContext;
     export let show = false;
+    export let captive = false;
     let root: HTMLDivElement;
     let id: number | undefined;
 
@@ -13,7 +14,7 @@
                 if ($$slots.default) {
                     id = bedCtx.open({
                         content: [...root.children],
-                        onOpen() {
+                        onOpen(id: number) {
                             for (const ch of this.content) {
                                 ch.dispatchEvent(new CustomEvent('modal-open', { bubbles: false }));
                             }
@@ -25,6 +26,11 @@
                                 ch.dispatchEvent(new CustomEvent('modal-close', { bubbles: false }));
                             }
                         },
+                        onRequestClose() {
+                            if (!captive) {
+                                bedCtx.close(id!);
+                            }
+                        }
                     });
                 }
             } else if(id) {

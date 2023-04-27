@@ -2,7 +2,12 @@
     import emojiRegex from 'emoji-regex';
     import pkceChallenge from 'pkce-challenge';
     import { formatScore, storeSubmission } from "./util";
-    import { PUBLIC_GH_CLIENT_ID, PUBLIC_TW_CLIENT_ID } from '$env/static/public';
+    import {
+        PUBLIC_GH_CLIENT_ID_DRAGONFLY,
+        PUBLIC_GH_CLIENT_ID_LOCALHOST,
+        PUBLIC_GH_CLIENT_ID_NETLIFY,
+        PUBLIC_TW_CLIENT_ID,
+    } from '$env/static/public';
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
     
@@ -42,10 +47,21 @@
         });
     }
 
+    function getGithubClientId(): string {
+        const { hostname } = new URL($page.url);
+        if (hostname === 'localhost') {
+            return PUBLIC_GH_CLIENT_ID_LOCALHOST;
+        }
+        if (hostname.match(/netlify.app$/)) {
+            return PUBLIC_GH_CLIENT_ID_NETLIFY;
+        }
+        return PUBLIC_GH_CLIENT_ID_DRAGONFLY;
+    }
+
     async function signInWithGithub() {
         const key = saveToStorage('github');
         const url = new URL(GH_AUTH_URL);
-        url.searchParams.append('client_id', PUBLIC_GH_CLIENT_ID);
+        url.searchParams.append('client_id', getGithubClientId());
         url.searchParams.append('redirect_uri', new URL('/scores', $page.url).toString());
         url.searchParams.append('state', key);
         window.location.href = url.toString();
