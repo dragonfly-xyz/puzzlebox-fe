@@ -8,7 +8,7 @@ import {
     decodeEventLog,
     type TransactionReceipt,
 } from 'viem';
-import { mainnet, localhost } from 'viem/chains';
+import { localhost } from 'viem/chains';
 import type { CompilerArtifacts } from './compile';
 
 const SIM_VALUE = 1337;
