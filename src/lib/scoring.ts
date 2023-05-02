@@ -16,6 +16,7 @@ const BREAKPOINT_RULES: { [event: string]: EventRule } = {
     'Drip': { weight: 1.0 / 10, maxCount: 10 },
     'Torch': { weight: 1.25, maxCount: 1, verify: (args: any) => args.dripIds.length === 6 },
     'Zip': { weight: 1.25, maxCount: 1 },
+    'Creep': { weight: 1.25, maxCount: 1 },
     'Spread': { weight: 1.5, maxCount: 1, verify: (args: any) => args.remaining === 0n },
     'Open': { weight: 2, maxCount: 1 },
 }

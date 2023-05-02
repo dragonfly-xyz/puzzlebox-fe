@@ -9,22 +9,25 @@ contract PuzzleBoxProxy {
     mapping (bytes4 selector => bool isLocked) public isFunctionLocked;
     address public owner;
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, 'not owner');
-        _;
-    }
-
     constructor(PuzzleBox logic) {
         _logic = logic;
         owner = msg.sender;
     }
 
-    function lock(bytes4 selector, bool isLocked) external onlyOwner {
+    // Allow/disallow a function selector from being called.
+    function lock(bytes4 selector, bool isLocked)
+        external
+    {
+        require(msg.sender == owner, 'not owner');
         isFunctionLocked[selector] = isLocked;
         emit Lock(selector, isLocked);
     }
 
-    fallback(bytes calldata callData) external payable returns (bytes memory returnData) {
+    fallback(bytes calldata callData)
+        external
+        payable
+        returns (bytes memory returnData)
+    {
         require(!isFunctionLocked[msg.sig], 'function is locked');
         bool s;
         (s, returnData) = address(_logic).delegatecall(callData);
@@ -42,27 +45,22 @@ contract PuzzleBox {
     event Zip();
     event Torch(uint256[] dripIds);
     event Burned(uint256 dripId);
+    event Creep();
     event Open(address winner);
 
-    bool isInitialized;
+    bool public isInitialized;
     address public admin;
     address payable public operator;
     bytes32 public friendshipHash;
     uint256 public lastDripId;
     uint256 public dripCount;
     uint256 public dripFee;
-    uint256 public receivedAmount;
+    uint256 public leakCount;
     mapping (uint256 dripId => bool isValid) public isValidDripId;
     mapping (bytes signature => uint256 blockNumber) public signatureConsumedAt;
 
-    modifier initializer() {
-        require(!isInitialized, 'already initialized');
-        _;
-        isInitialized = true;
-    }
-
     modifier onlyAdmin() {
-        require(admin == address(0) || msg.sender == admin, 'not owner');
+        require(admin == address(0) || msg.sender == admin, 'not admin');
         _;
     }
 
@@ -78,7 +76,12 @@ contract PuzzleBox {
     }
 
     modifier maxDripCount(uint256 maxDripped) {
-        require(dripCount <= maxDripped, 'too much drip');
+        require(dripCount <= maxDripped, 'too much outstanding drip');
+        _;
+    }
+
+    modifier minTotalDripped(uint256 minTotal) {
+        require(lastDripId >= minTotal, 'not enough dripped');
         _;
     }
 
@@ -102,6 +105,7 @@ contract PuzzleBox {
     }
 
     function initialize(
+        uint256 initialDripFee,
         address payable[] calldata friends,
         uint256[] calldata friendsCutBps,
         uint256 adminSigNonce,
@@ -109,9 +113,10 @@ contract PuzzleBox {
     )
         external
         payable
-        initializer
     {
-        dripFee = 100;
+        require(!isInitialized, 'already initialized');
+        isInitialized = true;
+        dripFee = initialDripFee;
         befriend(friends, friendsCutBps);
         admin = _consumeSignature(bytes32(adminSigNonce), adminSig);
         operator = payable(address(0));
@@ -128,8 +133,11 @@ contract PuzzleBox {
         friendshipHash = _getFriendshipHash(friends, friendsCutBps);
     }
 
-    // Become the operator for drip().
-    function operate() external noContractCaller {
+    // Become the operator for drip() and receive this contract's entire balance.
+    function operate()
+        external
+        noContractCaller
+    {
         require(operator == address(0), 'already being operated');
         operator = payable(msg.sender); 
         _transferEth(operator, address(this).balance);
@@ -157,7 +165,6 @@ contract PuzzleBox {
     }
 
     // Pay out a portion of accumulated fees to friends set by befriend().
-    // Consumes drip #3.
     function spread(
         address payable[] calldata friends,
         uint256[] calldata friendsCutBps
@@ -176,27 +183,24 @@ contract PuzzleBox {
         emit Spread(total, address(this).balance);
     }
 
-    // Perform a gas constrained transfer to self.
-    // Comsumes drip #1.
+    // Perform a gas constrained call to leak().
     function zip()
         external
         burnDripId(1)
     {
-        (bool b,) = payable(this).call{value: 1, gas: 8100}("");
-        require(b, 'zip failed');
+        this.leak{gas: 12_000}();
         emit Zip();
     }
 
-    receive() external payable {
+    function leak()
+        external
+    {
         unchecked {
-            uint256 a = receivedAmount + msg.value;
-            receivedAmount = a;
-            payable(address(uint160(address(this)) + uint160(a))).transfer(1);
+            payable(address(uint160(address(this)) + uint160(++leakCount))).transfer(1);
         }
     }
 
     // Burn an encoded list of drip IDs.
-    // Consumes drip #5.
     function torch(bytes calldata encodedDripIds)
         external
         burnDripId(5)
@@ -209,26 +213,58 @@ contract PuzzleBox {
         emit Torch(dripIds);
     }
 
-    // Consume an unused signature generated by the admin.
-    // Consumes drop #10. 
+    // Recursively calls creepForward().
+    function creep()
+        external
+        burnDripId(10)
+    {
+        // Succeed only if creepForward is called 7 times.
+        require(this.creepForward{value: address(this).balance}() == 7, 'too creepy');
+        emit Creep();
+    }
+
+    function creepForward()
+        external payable
+        returns (uint256 count)
+    {
+        unchecked {
+            count = 1;
+            if (msg.value != 0) {
+                try this.creepForward{value: msg.value - 1}() returns (uint256 count_) {
+                    count += count_;
+                } catch {}
+            }
+        }
+    }
+
+    // Consume an unused signature generated by the admin and open the box.
     function open(uint256 nonce, bytes calldata adminSig)
         external
         maxBalance(0)
-        burnDripId(10)
         maxDripCount(0)
+        minTotalDripped(10)
     {
         require(admin == _consumeSignature(bytes32(nonce), adminSig), 'not signed by admin');
+        // Congrats ;-)
         emit Open(msg.sender);
     }
 
-    function _consumeSignature(bytes32 h, bytes memory sig) internal returns (address signer) {
+    function _consumeSignature(bytes32 h, bytes memory sig)
+        internal
+        returns (address signer)
+    {
         require(signatureConsumedAt[sig] == 0, 'signature already used');
         signatureConsumedAt[sig] = block.number;
         signer = _recoverPackedSignature(h, sig);
     }
 
-    function _recoverPackedSignature(bytes32 h, bytes memory sig) internal pure returns (address) {
+    function _recoverPackedSignature(bytes32 h, bytes memory sig)
+        internal
+        pure
+        returns (address)
+    {
         require(sig.length == 65, 'invalid packed signature');
+        // unpack signature into r, s, v components
         bytes32 r; bytes32 s; uint8 v;
         assembly {
             r := mload(add(sig, 0x20))
@@ -238,12 +274,16 @@ contract PuzzleBox {
         return ecrecover(h, v, r, s);
     }
 
-    function _transferEth(address payable to, uint256 amount) private {
+    function _transferEth(address payable to, uint256 amount)
+        private
+    {
         (bool s,) = to.call{value: amount}("");
         require(s, 'transfer failed');
     }
     
-    function _burnDrip(uint256 dripId) internal {
+    function _burnDrip(uint256 dripId)
+        internal
+    {
         require(isValidDripId[dripId], 'missing drip id');
         isValidDripId[dripId] = false;
         --dripCount;
@@ -266,7 +306,11 @@ contract PuzzleBox {
 contract PuzzleBoxFactory {
     PuzzleBox public immutable logic = new PuzzleBox();
 
-    function createPuzzleBox() external payable returns (PuzzleBox puzzle) {
+    function createPuzzleBox()
+        external
+        payable
+        returns (PuzzleBox puzzle)
+    {
         PuzzleBoxProxy proxy = new PuzzleBoxProxy(logic);
         proxy.lock(PuzzleBox.torch.selector, true);
         puzzle = PuzzleBox(payable(proxy));
@@ -278,10 +322,18 @@ contract PuzzleBoxFactory {
             friendsCutBps[0] = 0.015e4;
             friendsCutBps[1] = 0.0075e4;
             puzzle.initialize{value: 1337}(
+                // initialDripFee
+                100,
                 friends,
                 friendsCutBps,
+                // adminSigNonce
                 0xc8f549a7e4cb7e1c60d908cc05ceff53ad731e6ea0736edf7ffeea588dfb42d8,
-                hex"c8f549a7e4cb7e1c60d908cc05ceff53ad731e6ea0736edf7ffeea588dfb42d8625cb970c2768fefafc3512a3ad9764560b330dcafe02714654fe48dd069b6df1c"
+                // adminSig
+                (
+                    hex"c8f549a7e4cb7e1c60d908cc05ceff53ad731e6ea0736edf7ffeea588dfb42d8"
+                    hex"625cb970c2768fefafc3512a3ad9764560b330dcafe02714654fe48dd069b6df"
+                    hex"1c"
+                )
             );
         }
     }
