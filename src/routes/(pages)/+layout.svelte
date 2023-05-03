@@ -4,9 +4,28 @@
     import Dialogue from '$lib/Dialogue.svelte';
     import introScript from '$lib/assets/intro-script.txt?raw';
     import Modal from '$lib/Modal.svelte';
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
+    import { PUBLIC_CONTEST_END_TIMESTAMP } from '$env/static/public';
 
     let isShowingIntro = false;
+    let countdownTimer: NodeJS.Timer | undefined;
+    let secondsLeft = 0;
+
+    function formatCountdown(seconds: number): string {
+        const s = seconds % 60;
+        seconds /= 60;
+        const m = Math.floor(seconds % 60);
+        seconds /= 60;
+        const h = Math.floor(seconds % 24);
+        seconds /= 24;
+        const d = Math.floor(seconds);
+        return [
+            `${d.toString().padStart(2, '0')}`,
+            `${h.toString().padStart(2, '0')}`,
+            `${m.toString().padStart(2, '0')}`,
+            `${s.toString().padStart(2, '0')}`,
+        ].join(':');
+    }
 
     onMount(() => {
         setTimeout(() => {
@@ -15,7 +34,18 @@
                 isShowingIntro = !whenIntroViewed;
             }
         }, 1000);
-    })
+        const updateSecondsLeft = () => {
+            secondsLeft = Math.max(0,
+                Math.floor(Number(PUBLIC_CONTEST_END_TIMESTAMP || 0) - Date.now() / 1e3)
+            );
+        };
+        countdownTimer = setInterval(updateSecondsLeft, 1e3);
+        updateSecondsLeft();
+    });
+
+    onDestroy(() => {
+        clearInterval(countdownTimer!);
+    });
 
 </script>
 
@@ -124,6 +154,9 @@
             letter-spacing: -0.25ex;
             outline: 0;
         }
+        > .countdown {
+            font-family: 'Silkscreen Bold', monospace;
+        }
     }
     main {
         margin: auto;
@@ -153,6 +186,13 @@
         <div class="terms">
             <span><a href="/privacy" target="_blank">Privacy</a></span>
             <span><a href="/rules" target="_blank">Rules</a></span>
+        </div>
+        <div class="countdown">
+            {#if secondsLeft > 0}
+            {formatCountdown(secondsLeft)}
+            {:else}
+            Contest is over!
+            {/if}
         </div>
         <div class="company">
             <a class="logo" href="https://dragonfly.xyz" target="_blank">&gt;|&lt;</a>
