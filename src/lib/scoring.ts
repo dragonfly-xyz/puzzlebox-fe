@@ -18,7 +18,7 @@ const BREAKPOINT_RULES: { [event: string]: EventRule } = {
     'Zip': { weight: 1.25, maxCount: 1, refGas: 110e3 },
     'Creep': { weight: 1.25, maxCount: 1, refGas: 92e3 },
     'Spread': { weight: 1.5, maxCount: 1, refGas: 50e3, verify: (args: any) => args.remaining === 0n },
-    'Open': { weight: 2, maxCount: 1, refGas: 37e3 },
+    'Open': { weight: 4, maxCount: 1, refGas: 37e3 },
 }
 
 export function scoreSimResults(sim: SimResults): number {
