@@ -3,23 +3,23 @@ import type { SimResults, DecodedEvent } from './simulate';
 interface EventRule {
     weight: number;
     maxCount: number;
+    refGas: number,
     verify?: (args: any) => boolean;
 }
 
 export const TORCH_SELECTOR = '0x925facb1';
 const BASE_SCORE = 1337;
-const GAS_REFERENCE = 1577658;
 const TRUE_FN = (..._args: any) => true;
 const BREAKPOINT_RULES: { [event: string]: EventRule } = {
-    'Operate': { weight: 0.4982, maxCount: 1 },
-    'Lock': { weight: 0.75,  maxCount: 1, verify: (args: any) => args.selector === TORCH_SELECTOR && !args.isLocked },
-    'Drip': { weight: 1.0 / 10, maxCount: 10 },
-    'Torch': { weight: 1.25, maxCount: 1, verify: (args: any) => args.dripIds.length === 6 },
-    'Zip': { weight: 1.25, maxCount: 1 },
-    'Spread': { weight: 1.5, maxCount: 1, verify: (args: any) => args.remaining === 0n },
-    'Open': { weight: 2, maxCount: 1 },
+    'Operate': { weight: 0.5, maxCount: 1, refGas: 80e3 },
+    'Lock': { weight: 0.75,  maxCount: 1, refGas: 10e3, verify: (args: any) => args.selector === TORCH_SELECTOR && !args.isLocked },
+    'Drip': { weight: 1.0 / 10, maxCount: 10, refGas: 500e3 / 10 },
+    'Torch': { weight: 1.25, maxCount: 1, refGas: 31e3, verify: (args: any) => args.dripIds.length === 6 },
+    'Zip': { weight: 1.25, maxCount: 1, refGas: 110e3 },
+    'Creep': { weight: 1.25, maxCount: 1, refGas: 92e3 },
+    'Spread': { weight: 1.5, maxCount: 1, refGas: 50e3, verify: (args: any) => args.remaining === 0n },
+    'Open': { weight: 4, maxCount: 1, refGas: 37e3 },
 }
-const GAS_BONUS = 5000;
 
 export function scoreSimResults(sim: SimResults): number {
     if (sim.error || sim.gasUsed === 0) {
@@ -29,8 +29,9 @@ export function scoreSimResults(sim: SimResults): number {
         a[v.eventName] = [...(a[v.eventName] || []), v];
         return a;
     }, {} as { [event: string]: DecodedEvent[] });
-    let score = 0;
+    let rawScore = 0;
     let opened = false;
+    let totalRefGas = 0;
     for (const eventName in eventsGroupedByName) {
         const rule = BREAKPOINT_RULES[eventName];
         if (!rule) {
@@ -42,11 +43,11 @@ export function scoreSimResults(sim: SimResults): number {
         if (eventName === 'Open' && instances.length != 0) {
             opened = true;
         }
-        score += rule.weight * instances.length;
+        rawScore += rule.weight * instances.length;
+        totalRefGas += rule.refGas * instances.length;
     }
-    score *= BASE_SCORE;
-    if (opened) {
-        score += GAS_BONUS * (GAS_REFERENCE / (sim.gasUsed + 1) - 1);
-    }
+    rawScore *= BASE_SCORE;
+    const gasMultiplier = totalRefGas / (sim.gasUsed + 1);
+    const score = rawScore * gasMultiplier;
     return Math.floor(score);
 }

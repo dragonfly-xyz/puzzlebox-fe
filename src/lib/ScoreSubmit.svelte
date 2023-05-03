@@ -1,5 +1,4 @@
 <script lang="ts">
-    import emojiRegex from 'emoji-regex';
     import pkceChallenge from 'pkce-challenge';
     import { formatScore, storeSubmission } from "./util";
     import {
@@ -11,7 +10,6 @@
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
     
-    const EMOJI_REGIX = emojiRegex();
     const GH_AUTH_URL = 'https://github.com/login/oauth/authorize';
     const TW_AUTH_URL = 'https://twitter.com/i/oauth2/authorize';
 
@@ -30,7 +28,7 @@
 
     function isValidName(s: string): boolean {
         return s.length <= 32 && 
-            /^[-/\\@a-z0-9_?!.,^~]*$/i.test(s.replace(EMOJI_REGIX, ''));
+            /^[-/\\@a-z0-9_?!.,^~]*$/i.test(s);
     }
 
     function isValidEmail(s: string): boolean {

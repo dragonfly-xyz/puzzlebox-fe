@@ -5,6 +5,7 @@ export interface Score {
     score: number;
     profile: string;
     rank: number;
+    unlocked: boolean;
     timestamp: number;
 }
 

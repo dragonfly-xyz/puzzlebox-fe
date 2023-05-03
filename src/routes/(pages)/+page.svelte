@@ -167,15 +167,15 @@
             height: 1px;
         }
     }
-    .challenge.expanded {
+    .code.challenge {
         > :global(*:last-child) {
-            min-height: 24em;
-            max-height: initial;
-            height: auto;
         }
     }
-    .solution {
-        max-height: fit-content;
+    .code.challenge.expanded {
+        > :global(*:last-child) {
+            max-height: initial;
+            height: fit-content;
+        }
     }
 </style>
 

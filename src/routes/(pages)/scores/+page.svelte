@@ -133,6 +133,9 @@
         filter: brightness(2.5);
         background-color: #242424;
     }
+    .entry.unlocked > :nth-child(3) {
+        color: #e2c838
+    }
     .entry > * {
         overflow: hidden;
         white-space: nowrap;
@@ -263,21 +266,22 @@
     <div class="loading">Loading scores...</div>
     {/if}
     {#if scores}
-    {#each scores as { name, score, profile, rank }, idx}
+    {#each scores as hs, idx}
     <div class="entry"
         class:odd={!!(idx % 2)}
-        class:submitter={submitResult && submitResult.rank === rank}
+        class:unlocked={hs.unlocked}
+        class:submitter={submitResult && submitResult.rank === hs.rank}
     >
-        <div>{ rank }.</div>
+        <div>{ hs.rank }.</div>
         <div>
             <a
-                href={profile}
+                href={hs.profile}
                 target="_blank"
             >
-                { name }
+                { hs.name }
             </a>
         </div>
-        <div>{ formatScore(score) }</div>
+        <div>{ formatScore(hs.score) }</div>
     </div>
     {/each}
     {/if}

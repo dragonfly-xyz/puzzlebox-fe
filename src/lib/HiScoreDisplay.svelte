@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
     import type { Score } from './types';
-    import { formatScore } from "./util";
+    import { formatScore } from "$lib/util";
 
     export let hiScores: Score[] = [];
     export let message: string | null = null;
@@ -115,6 +115,12 @@
     .entry a {
         color: inherit !important;
     }
+    .entry.unlocked > :nth-child(3) {
+        color: #e2c838
+    }
+    .entry.odd {
+        background-color: rgba(255,255,255,0.05);
+    }
 </style>
 
 <div class="component">
@@ -125,7 +131,7 @@
         {:else}
         <div>
             {#each sortedHiScores.slice(0,16) as hs, idx}
-                <div class="entry">
+                <div class="entry" class:unlocked={hs.unlocked} class:odd={!!(idx % 2)}>
                     <div>{ idx + 1 }.</div>
                     <div>
                         <a
