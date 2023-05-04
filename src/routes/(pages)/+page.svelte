@@ -205,7 +205,7 @@
                 </li>
                 <li>
                     <a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">Here</a> is a foundry project
-                    where you can iterate on and test your solution offline.
+                    where you can iterate on and test your solution offline. It also provides helpful technical details about the puzzle.
                 </li>
                 <li>
                     Challenge runs from May 6 00:00 UTC to May 8 00:00 UTC.

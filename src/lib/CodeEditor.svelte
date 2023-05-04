@@ -8,6 +8,7 @@
     import { vscodeKeymap } from '@replit/codemirror-vscode-keymap';
     import { debounce, throttle } from 'underscore';
     import { browser } from '$app/environment';
+    import Modal from './Modal.svelte';
 
     const dispatch = createEventDispatcher();
 
@@ -21,6 +22,8 @@
     export let saveId: string | undefined;
     let isDirty = false;
     let savedContents: string | undefined;
+    let showConfirmReset = false;
+    let confirmPopup: HTMLElement | undefined;
 
     const editorLang = new LanguageSupport(StreamLanguage.define(solidityParser), syntaxHighlighting(oneDarkHighlightStyle));
     const editorStyles = {
@@ -52,10 +55,21 @@
         expanded = !expanded;
     }
 
-    function resetContents() {
-        if (originalContents !== null) {
-            contents = originalContents;
+    function promptToResetContents() {
+        if (originalContents !== null && contents !== originalContents) {
+            showConfirmReset = true;
         }
+    }
+
+    function resetContents() {
+        if (originalContents !== null && contents !== originalContents) {
+            contents = originalContents;
+            closeResetContentsPopup();
+        }
+    }
+
+    function closeResetContentsPopup() {
+        confirmPopup!.dispatchEvent(new CustomEvent('modal-close', { bubbles: true }));
     }
 
     onMount(() => {
@@ -138,6 +152,26 @@
         color: #333;
         font-family: 'ComicMono', monospace;
     }
+    
+    .confirm-popup {
+        @extend .pixel-corners;
+        background-color: var(--background-color);
+        margin: auto;
+        padding: 1em 2em;
+        width: max-content;
+        text-align: center;
+        > .buttons {
+            display: flex;
+            justify-content: center;
+            margin-top: 1em;
+            gap: 2.5ex;
+            
+            > button {
+                @extend .pixel-corners;
+                flex: 0;
+            }
+        }
+    }
 </style>
 
 <div class="component" class:expanded={expanded}>
@@ -162,7 +196,7 @@
         {:else}
         <button
             class="corner-button pixel-button"
-            on:click={resetContents}
+            on:click={promptToResetContents}
             class:hidden={!isDirty || error}
         >
             ↺
@@ -173,4 +207,13 @@
         </button>
         <textarea class="error" class:hidden={!error} readonly bind:value={error}></textarea>
     </div>
+    <Modal bind:show={showConfirmReset}>
+        <div class="confirm-popup" bind:this={confirmPopup}>
+            Reset editor contents to original?
+            <div class="buttons">
+                <button on:click|preventDefault|stopPropagation={resetContents}>Yah</button>
+                <button on:click|preventDefault|stopPropagation={closeResetContentsPopup}>Nah</button>
+            </div>
+        </div>
+    </Modal>
 </div>
