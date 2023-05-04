@@ -197,10 +197,11 @@
                 <li>
                     The puzzlebox is defined by and configured through the following contracts,
                     which present multiple, interconnected EVM challenges you must solve to in
-                    order to <strong>Open</strong> the box and save crypto!
+                    order to <strong>Open()</strong> the box and save crypto!
                 </li>
                 <li>
                     Scores are awarded per challenge so even partial solutions will put you on the board.
+                    Gas efficiency also nets you extra points.
                 </li>
                 <li>
                     <a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">Here</a> is a foundry project
@@ -208,9 +209,12 @@
                 </li>
                 <li>
                     Challenge runs from May 6 00:00 UTC to May 8 00:00 UTC.
-                    Three winning submissions will be chosen: one highest score, one fastest,
-                    and one most creative. Eligible winners will be awarded one <strong>Milady NFT</strong>.
                 </li>
+                <li>
+                    Three winning submissions will be chosen: one highest score, one earliest (and complete),
+                    and one most creative (and legible).
+                </li>
+                <li>Eligible winners will be awarded one <strong>Milady NFT</strong>.</li>
                 <li>
                     Hackers can compete solo or in teams, but not both.
                     See <a href="/rules">Rules</a> for more information.
