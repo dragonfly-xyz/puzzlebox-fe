@@ -1,6 +1,6 @@
 <script lang="ts">
     import HiScoreDisplay from '$lib/HiScoreDisplay.svelte';
-    import CodeEditor, { ExpandAction } from '$lib/CodeEditor.svelte';
+    import CodeEditor from '$lib/CodeEditor.svelte';
     import PuzzleRendering, { type SimResultsWithScore } from '$lib/PuzzleRendering.svelte';
     import challengeCode from '$lib/sol/PuzzleBox.sol?raw';
     import solutionStubCode from '$lib/sol/Solution.sol?raw';
@@ -28,7 +28,7 @@
     let solveStep: SolveStep = SolveStep.None;
     let solutionError: string | undefined;
     let simResultsWithScore: SimResultsWithScore | undefined;
-    let solutionCode = solutionStubCode;
+    let solutionCode = solutionStubCode.slice();
     let puzzleRenderingEl: HTMLElement | undefined;
     let challengeCodeExpanded = false;
     let isSubmitting = false;
@@ -161,21 +161,6 @@
             padding-left: 2ex;
             opacity: 0.75;
         }
-        > :global(*:last-child) {
-            min-height: 24em;
-            max-height: 32em;
-            height: 1px;
-        }
-    }
-    .code.challenge {
-        > :global(*:last-child) {
-        }
-    }
-    .code.challenge.expanded {
-        > :global(*:last-child) {
-            max-height: initial;
-            height: fit-content;
-        }
     }
 </style>
 
@@ -240,12 +225,10 @@
             </a>
         </div>
         <CodeEditor
-            
             readOnly
             contents={challengeCode}
             on:action={copyChallenge}
             actionText={'Copy'}
-            expandAction={challengeCodeExpanded ? ExpandAction.Inpand : ExpandAction.Expand}
             on:expand={expandChallengeCode}
         />
     </div>
@@ -257,10 +240,13 @@
         </div>
         <CodeEditor
             bind:contents={solutionCode}
+            originalContents={solutionStubCode}
             on:action={onSolve}
             actionText={solveStep}
             busy={solveStep != SolveStep.None}
             bind:error={solutionError}
+            expanded={true}
+            saveId="saved-solution"
         />
     </div>
     <Modal bind:show={isSubmitting}>

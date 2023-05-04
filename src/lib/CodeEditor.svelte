@@ -1,28 +1,26 @@
-<script lang="ts" context="module">
-    export enum ExpandAction {
-        None,
-        Expand,
-        Inpand,
-    }
-</script>
-
 <script lang="ts">
-    import { createEventDispatcher } from 'svelte';
+    import { createEventDispatcher, onMount } from 'svelte';
     import CodeMirror from 'svelte-codemirror-editor';
     import { parser as solidityParser } from '@replit/codemirror-lang-solidity';
     import { oneDarkTheme, oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
     import { LanguageSupport, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
     import { keymap } from '@codemirror/view';
     import { vscodeKeymap } from '@replit/codemirror-vscode-keymap';
+    import { debounce, throttle } from 'underscore';
+    import { browser } from '$app/environment';
 
     const dispatch = createEventDispatcher();
 
     export let readOnly = false;
     export let error: string | null = null;
     export let contents: string = '';
+    export let originalContents: string | null = null;
     export let actionText: string = '';
     export let busy: boolean = false;
-    export let expandAction = ExpandAction.None;
+    export let expanded = false;
+    export let saveId: string | undefined;
+    let isDirty = false;
+    let savedContents: string | undefined;
 
     const editorLang = new LanguageSupport(StreamLanguage.define(solidityParser), syntaxHighlighting(oneDarkHighlightStyle));
     const editorStyles = {
@@ -33,6 +31,15 @@
         }
     };
 
+
+    const save = throttle(() => {
+        if (!browser || !saveId || contents === savedContents) {
+            return;
+        }
+        savedContents = contents;
+        localStorage.setItem(saveId, savedContents);
+    }, 250);
+
     function act() {
         if (error) {
             error = null;
@@ -42,7 +49,24 @@
     }
 
     function expand() {
-        dispatch('expand');
+        expanded = !expanded;
+    }
+
+    function resetContents() {
+        if (originalContents !== null) {
+            contents = originalContents;
+        }
+    }
+
+    onMount(() => {
+        if (saveId) {
+            contents = localStorage.getItem(saveId) || contents;
+        }
+    });
+
+    $: {
+        isDirty = originalContents !== null && contents !== originalContents;
+        setTimeout(() => save(), 1e3);
     }
 
 </script>
@@ -54,12 +78,18 @@
         @extend .pixel-corners;
         position: relative;
         cursor: text;
+        display: flex;
+        min-height: 24em;
+    }
+
+    .component:not(.expanded) {
+        max-height: 24em;
     }
 
     .component > :global(.pz-code-editor) {
         box-sizing: border-box;
         color: #000;
-        height: 100%;
+        width: 100%;
     }
 
     .component > :global(.codemirror-wrapper > .cm-editor) {
@@ -87,7 +117,7 @@
         bottom: 0.3em;
     }
 
-    .expand {
+    .corner-button {
         position: absolute;
         right: 2.5ex;
         top: 0.5em;
@@ -110,7 +140,7 @@
     }
 </style>
 
-<div class="component">
+<div class="component" class:expanded={expanded}>
     <CodeMirror
         class="pz-code-editor"
         readonly={readOnly}
@@ -122,9 +152,22 @@
         tabSize={4}
         />
     <div class="cover">
-        <button class="expand pixel-button" on:click={expand} class:hidden={expandAction === ExpandAction.None}>
-            {expandAction === ExpandAction.Expand ? '⛶' : '🡵'}
+        {#if readOnly}
+        <button
+            class="corner-button pixel-button"
+            on:click={expand}
+        >
+            {expanded ? '🡵' : '⛶'}
         </button>
+        {:else}
+        <button
+            class="corner-button pixel-button"
+            on:click={resetContents}
+            class:hidden={!isDirty || error}
+        >
+            ↺
+        </button>
+        {/if}
         <button class="action pixel-button" on:click={act} disabled={busy} aria-busy={busy}>
             {error ? 'Got it' : actionText}
         </button>
