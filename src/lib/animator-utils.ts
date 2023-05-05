@@ -56,6 +56,8 @@ export function animateFromResults(animator: Animator, results: SimResults): voi
             animator.animateTorchChallenge();
         } else if (eventName === 'Zip') {
             animator.animateZipChallenge();
+        } else if (eventName === 'Creep') {
+            animator.animateCreepChallenge();
         } else if (eventName === 'Spread') {
             animator.animateSpreadChallenge(Number(eventArgs.amount));
         } else if (eventName === 'Open') {

@@ -846,6 +846,32 @@ export class Animator {
         return this;
     }
 
+    public animateCreepChallenge(): this {
+        const mixer = this._getMixer(this._getObjectByName('box'));
+        const startAction = this._createAnimationAction(
+            mixer,
+            'creep',
+            { loop: false, clamp: false },
+        );
+        this._sequencer
+            .then(this._createCameraSequence([-0.37, -0.84, -0.38]))
+            .then(new SequenceAction({
+                enter() {
+                    startAction.stop(); startAction.play();
+                },
+                update: () => {
+                    this._touchMixer(mixer);
+                    if (!startAction.isRunning()) {
+                        return true;
+                    }
+                    return false;
+                },
+            }))
+            .then(this._createFlashSequence())
+            .play();
+        return this;
+    }
+
     public animateOpenChallenge(): this {
         const mixer = this._getMixer(this._puzzleBox);
         const openAction = this._createAnimationAction(
