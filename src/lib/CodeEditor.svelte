@@ -155,7 +155,7 @@
     
     .confirm-popup {
         @extend .pixel-corners;
-        background-color: var(--background-color);
+        background-color: var(--dialog-bg-color);
         margin: auto;
         padding: 1em 2em;
         width: max-content;
