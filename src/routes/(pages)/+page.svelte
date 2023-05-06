@@ -204,6 +204,9 @@
                     Gas efficiency also nets you extra points.
                 </li>
                 <li>
+                    You can submit as many times as you want!
+                </li>
+                <li>
                     <a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">Here</a> is a foundry project
                     where you can iterate on and test your solution offline. It also provides helpful technical details about the puzzle.
                 </li>
