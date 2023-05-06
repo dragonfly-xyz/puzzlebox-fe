@@ -20,7 +20,7 @@
     import { createEventDispatcher } from 'svelte';
     import { Animator } from './animator';
     import type { SimResultsWithScore } from './types';
-    import { formatScore } from './util';
+    import { formatScore } from '$lib/util';
     import { onMount, onDestroy } from 'svelte';
     import { animateFromResults } from './animator-utils';
 
@@ -126,11 +126,15 @@
         const { animator } = renderContext;
         await animator.animateReset().wait();
         animator.animateWait(1);
-        animateFromResults(animator, simResultsWithScore.simResults);
-        if (simResultsWithScore.score > 0) {
-            animator.animateWait(2.5);
+        try {
+            animateFromResults(animator, simResultsWithScore.simResults);
+            if (simResultsWithScore.score > 0) {
+                animator.animateWait(2.5);
+            }
+            await animator.wait();
+        } catch (err) {
+            console.error(err);
         }
-        await animator.wait();
         console.log('complete');
         if (simResultsWithScore.score > 0) {
             isPrompting = true;
