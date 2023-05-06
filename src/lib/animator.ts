@@ -746,7 +746,10 @@ export class Animator {
     }
 
     public animateSpreadChallenge(amount: number): this {
-        const lastBarIdx = Math.round(12 * amount / 1000);
+        const lastBarIdx = Math.min(12, Math.round(12 * amount / 1000));
+        if (lastBarIdx == 0) {
+            return this;
+        }
         const barActions: AnimationAction[] = [];
         const glowActions: AnimationAction[] = [];
         for (let i = 0; i < lastBarIdx; ++i) {
