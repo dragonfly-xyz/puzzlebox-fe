@@ -200,6 +200,9 @@
                     order to <strong>Open()</strong> the box and save crypto!
                 </li>
                 <li>
+                    There is a 32M (shared) block gas limit. A viable solution should be achievable in far less than that.
+                </li>
+                <li>
                     Scores are awarded per challenge so even partial solutions will put you on the board.
                     Gas efficiency also nets you extra points.
                 </li>
