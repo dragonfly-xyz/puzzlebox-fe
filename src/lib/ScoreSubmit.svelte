@@ -163,7 +163,7 @@
         <input
             type="text"
             placeholder="For prizes/offers!"
-            maxlength="24"
+            maxlength="96"
             bind:value={submitEmail}
             class:error={submitEmail && !isValidEmail(submitEmail)}
         />
