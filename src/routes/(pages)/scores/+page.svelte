@@ -45,6 +45,7 @@
     import { browser } from "$app/environment";
     import { scrollIntoView } from "seamless-scroll-polyfill";
     import Modal from "$lib/Modal.svelte";
+    import { contestSecondsLeft } from '$lib/stores';
 
     const EMOJIS = ['🎊', '✨', '🎉', '🏆', '🎈', '🎖️'];
     const MAX_COUNT = 500;
@@ -56,6 +57,9 @@
     let submitResult: SubmitResult | undefined;
     let emojifettis: HTMLSpanElement[] = [];
     let emojiTimer: NodeJS.Timer | undefined;
+    let showBadges = false;
+
+    $: showBadges = $contestSecondsLeft < 0;
 
     $: (async () => {
         if (browser) {
@@ -121,10 +125,29 @@
         font-weight: bold;
     }
     .entry {
+        font-size: 0.85em;
+        @media (min-width: map-get($breakpoints, "sm")) {
+            font-size: 1em;
+        }
+
         display: flex;
         flex-direction: row;
         justify-content: space-between;
         gap: 1em;
+
+        > .score {
+            text-align: right;
+        }
+        > .badge {
+            text-align: right;
+        }
+        > .rank {
+            flex: 0 0 6ex;
+        }
+        > .name {
+            flex: 1 1 auto;
+            text-align: center;
+        }
     }
     .entry.odd {
         background-color: rgba(255,255,255,0.05);
@@ -133,14 +156,17 @@
         filter: brightness(2.5);
         background-color: #242424;
     }
-    .entry.unlocked > :nth-child(3) {
-        color: #e2c838
+    .entry.unlocked > .score {
+        color: #e2c838;
     }
     .entry > * {
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
-        margin: 0 1ex;
+        gap: 0.75ex;
+    }
+    .hidden {
+        display: none;
     }
     .header {
         align-self: center;
@@ -272,16 +298,14 @@
         class:unlocked={hs.unlocked}
         class:submitter={submitResult && submitResult.rank === hs.rank}
     >
-        <div>{ hs.rank }.</div>
-        <div>
-            <a
-                href={hs.profile}
-                target="_blank"
-            >
-                { hs.name }
-            </a>
+        <div class="rank">{ hs.rank }.</div>
+        <div class="badge" class:hidden={!showBadges}>
+            {#if hs.isContestant}
+                {#if hs.isWinner}🏆{:else if hs.firstUnlocked}🎖️{:else}🏅{/if}
+            {/if}
         </div>
-        <div>{ formatScore(hs.score) }</div>
+        <div class="name"><a href={hs.profile} target="_blank">{ hs.name }</a></div>
+        <div class="score">{ formatScore(hs.score) }</div>
     </div>
     {/each}
     {/if}

@@ -4,15 +4,12 @@
     import Dialogue from '$lib/Dialogue.svelte';
     import introScript from '$lib/assets/intro-script.txt?raw';
     import Modal from '$lib/Modal.svelte';
-    import { onDestroy, onMount } from "svelte";
-    import { PUBLIC_CONTEST_END_TIMESTAMP } from '$env/static/public';
+    import { onMount } from "svelte";
+    import { contestSecondsLeft } from "$lib/stores";
 
     let isShowingIntro = false;
-    let countdownTimer: NodeJS.Timer | undefined;
-    let secondsLeft = 0;
-
     function formatCountdown(seconds: number): string {
-        const s = seconds % 60;
+        const s = Math.floor(seconds % 60);
         seconds /= 60;
         const m = Math.floor(seconds % 60);
         seconds /= 60;
@@ -34,19 +31,7 @@
                 isShowingIntro = !whenIntroViewed;
             }
         }, 1000);
-        const updateSecondsLeft = () => {
-            secondsLeft = Math.max(0,
-                Math.floor(Number(PUBLIC_CONTEST_END_TIMESTAMP || 0) - Date.now() / 1e3)
-            );
-        };
-        countdownTimer = setInterval(updateSecondsLeft, 1e3);
-        updateSecondsLeft();
     });
-
-    onDestroy(() => {
-        clearInterval(countdownTimer!);
-    });
-
 </script>
 
 <style lang="scss">
@@ -188,8 +173,8 @@
             <span><a href="/rules" target="_blank">Rules</a></span>
         </div>
         <div class="countdown">
-            {#if secondsLeft > 0}
-            {formatCountdown(secondsLeft)}
+            {#if $contestSecondsLeft > 0}
+            {formatCountdown($contestSecondsLeft)}
             {:else}
             Contest is over!
             {/if}

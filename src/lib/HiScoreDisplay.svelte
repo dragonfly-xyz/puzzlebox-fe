@@ -2,10 +2,14 @@
     import { onDestroy, onMount } from "svelte";
     import type { Score } from './types';
     import { formatScore } from "$lib/util";
+    import { contestSecondsLeft } from "./stores";
 
     export let hiScores: Score[] = [];
     export let message: string | null = null;
     let sortedHiScores: Score[];
+    let showBadges = false;
+
+    $: showBadges = $contestSecondsLeft < 0;
     $: sortedHiScores = hiScores.sort((a: Score, b: Score) => b.score - a.score);
     
     let scoresElem: HTMLElement;
@@ -67,6 +71,31 @@
     .entry {
         display: flex;
         flex-direction: row;
+        gap: 0.75ex;
+
+        > * {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        > .rank {
+            flex: 0 0 6ex;
+            padding-right: 1ex;
+        }
+
+        > .name {
+            flex: 1 1 auto;
+            text-align: center;
+        }
+
+        >.score {
+            width: 16ex;
+            text-align: right;
+        }
+    }
+    .entry.unlocked > .score {
+        color: #e2c838
     }
 
     .header {
@@ -75,27 +104,6 @@
         animation: blink 0.85s steps(1, end) infinite;
     }
 
-    .entry > * {
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
-
-    .entry >:nth-child(1) {
-        width: 8ex;
-        padding-right: 1ex;
-    }
-
-    .entry >:nth-child(2) {
-        width: 24ex;
-        text-align: center;
-        flex: 1;
-    }
-
-    .entry >:nth-child(3) {
-        width: 16ex;
-        text-align: right;
-    }
 
     .more {
         text-align: right;
@@ -111,15 +119,15 @@
         50% { opacity: 15%; }
         100% { opacity: 100%; }
     }
-
     .entry a {
         color: inherit !important;
     }
-    .entry.unlocked > :nth-child(3) {
-        color: #e2c838
-    }
+    
     .entry.odd {
         background-color: rgba(255,255,255,0.05);
+    }
+    .hidden {
+        display: none;
     }
 </style>
 
@@ -132,8 +140,13 @@
         <div>
             {#each sortedHiScores.slice(0,16) as hs, idx}
                 <div class="entry" class:unlocked={hs.unlocked} class:odd={!!(idx % 2)}>
-                    <div>{ idx + 1 }.</div>
-                    <div>
+                    <div class="rank">{ idx + 1 }.</div>
+                    <div class="badge" class:hidden={!showBadges}>
+                        {#if hs.isContestant}
+                            {#if hs.isWinner}🏆{:else if hs.firstUnlocked}🎖️{:else}🏅{/if}
+                        {/if}
+                    </div>
+                    <div class="name">
                         <a
                             href={hs.profile}
                             target="_blank"
@@ -141,7 +154,7 @@
                             { hs.name }
                         </a>
                     </div>
-                    <div>{ formatScore(hs.score) }</div>
+                    <div class="score">{ formatScore(hs.score) }</div>
                 </div>
             {/each}
             {#if sortedHiScores.length > 16}

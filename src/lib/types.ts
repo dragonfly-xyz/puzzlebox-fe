@@ -7,6 +7,9 @@ export interface Score {
     rank: number;
     unlocked: boolean;
     timestamp: number;
+    firstUnlocked: number | null;
+    isContestant: boolean;
+    isWinner: boolean;
 }
 
 export interface SimResultsWithScore {
