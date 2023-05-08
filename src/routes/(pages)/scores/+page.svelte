@@ -199,6 +199,10 @@
     .alternate-scores {
         align-self: center;
         margin-bottom: 1em;
+        font-size: 0.9em;
+        @media (min-width: map-get($breakpoints, "sm")) {
+            font-size: 1em;
+        }
 
         > span {
             text-decoration: underline;

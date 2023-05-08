@@ -118,6 +118,8 @@
         flex-direction: row;
         align-self: center;
         font-size: 0.9em;
+        flex-wrap: wrap;
+       justify-content: center; 
     }
     .quick-links > * + *::before {
         content: ' • ';
