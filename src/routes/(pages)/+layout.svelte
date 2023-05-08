@@ -173,13 +173,11 @@
             <span><a href="/privacy" target="_blank">Privacy</a></span>
             <span><a href="/rules" target="_blank">Rules</a></span>
         </div>
+        {#if $contestSecondsLeft > 0}
         <div class="countdown">
-            {#if $contestSecondsLeft > 0}
             {formatCountdown($contestSecondsLeft)}
-            {:else}
-            Contest is over!
-            {/if}
         </div>
+        {/if}
         <div class="company">
             <a class="logo" href="https://dragonfly.xyz" target="_blank">&gt;|&lt;</a>
         </div>
