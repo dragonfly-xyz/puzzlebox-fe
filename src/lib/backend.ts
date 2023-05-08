@@ -6,12 +6,15 @@ export interface SubmitResult {
     profile: string;
 }
 
-export async function getScores(start: number = 0, count: number = 100): Promise<Score[]> {
+export async function getScores(start: number = 0, count: number = 100, contestOnly: boolean = false): Promise<Score[]> {
     const r = await fetch(
         (() => {
             const url = new URL(PUBLIC_GET_SCORES_ENDPOINT);
             url.searchParams.append('start', start.toString());
             url.searchParams.append('count', count.toString());
+            if (contestOnly) {
+                url.searchParams.append('contest_only', '');
+            }
             return url.toString();
         })(),
     );

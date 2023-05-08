@@ -159,6 +159,7 @@
         </div>
         <div class="quick-links">
             <div><a on:click|stopPropagation|preventDefault={() => isShowingIntro = true}>intro</a></div>
+            <div><a href="scores">scores</a></div>
             <div><a href="https://github.com/dragonfly-xyz/puzzlebox-ctf">github</a></div>
             <div><a href="https://t.me/+L09goZAIgYkzMmYx">support</a></div>
             <div><a href="https://jobs.dragonfly.xyz/jobs">jobs</a></div>

@@ -58,6 +58,7 @@
     let emojifettis: HTMLSpanElement[] = [];
     let emojiTimer: NodeJS.Timer | undefined;
     let showBadges = false;
+    let contestOnly: boolean | undefined;
 
     $: showBadges = $contestSecondsLeft < 0;
 
@@ -71,13 +72,19 @@
         }
     })();
 
+    $: {
+        if (browser) {
+            contestOnly = $page.url.searchParams.get('contest') !== null;
+        }
+    }
+
     $: (async () => {
         if (!submitData) {
             let start = 0;
             if (submitResult) {
                 start = Math.max(Math.floor(submitResult.rank - 1 - MAX_COUNT / 2), 0);
             }
-            scores = await getScores(start, MAX_COUNT);
+            scores = await getScores(start, MAX_COUNT, contestOnly);
         }
     })();
 
@@ -189,6 +196,14 @@
         height: 0;
         font-family: auto;
     }
+    .alternate-scores {
+        align-self: center;
+        margin-bottom: 1em;
+
+        > span {
+            text-decoration: underline;
+        }
+    }
     .submit-popup {
         @extend .pixel-corners;
         
@@ -272,12 +287,15 @@
 
 <div class="component" bind:this={component}>
     <div class="header">HI SCORES</div>
-    <Modal show={!!submitData} captive={true}>
-        <div class="submit-popup">
-            <div class="message">submitting your score...</div>
-            <div class="spinner">.</div>
-        </div>
-    </Modal>
+    <div class="alternate-scores">
+            {#if contestOnly}
+            <a href="?live">live results</a> |
+            <span>contest results</span>
+            {:else}
+            <span>live results</span> |
+            <a href="?contest">contest results</a>
+            {/if}
+    </div>
     {#if submitResult}
     <div class="thanks">
         <div class="emojifettis">
@@ -309,4 +327,10 @@
     </div>
     {/each}
     {/if}
+    <Modal show={!!submitData} captive={true}>
+        <div class="submit-popup">
+            <div class="message">submitting your score...</div>
+            <div class="spinner">.</div>
+        </div>
+    </Modal>
 </div>
