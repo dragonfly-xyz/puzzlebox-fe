@@ -289,11 +289,11 @@
     <div class="header">HI SCORES</div>
     <div class="alternate-scores">
             {#if contestOnly}
-            <a href="?live">live results</a> |
-            <span>contest results</span>
+            <a href="?live">live scores</a> |
+            <span>contest scores</span>
             {:else}
-            <span>live results</span> |
-            <a href="?contest">contest results</a>
+            <span>live scores</span> |
+            <a href="?contest">contest scores</a>
             {/if}
     </div>
     {#if submitResult}
