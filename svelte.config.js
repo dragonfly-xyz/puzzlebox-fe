@@ -16,8 +16,9 @@ const config = {
 		}),
 		paths: {
 			base: dev ? '' : process.env.BASE_PATH,
+			relative: dev ? false : true,
 		},
-	}
+	},
 };
 
 export default config;
