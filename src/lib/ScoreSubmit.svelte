@@ -4,7 +4,7 @@
     import {
         PUBLIC_GH_CLIENT_ID_DRAGONFLY,
         PUBLIC_GH_CLIENT_ID_LOCALHOST,
-        PUBLIC_GH_CLIENT_ID_NETLIFY,
+        PUBLIC_GH_CLIENT_ID_GHPAGES,
         PUBLIC_TW_CLIENT_ID,
     } from '$env/static/public';
     import { page } from '$app/stores';
@@ -50,8 +50,8 @@
         if (hostname === 'localhost') {
             return PUBLIC_GH_CLIENT_ID_LOCALHOST;
         }
-        if (hostname.match(/netlify.app$/)) {
-            return PUBLIC_GH_CLIENT_ID_NETLIFY;
+        if (hostname.match(/\.github.io$/)) {
+            return PUBLIC_GH_CLIENT_ID_GHPAGES;
         }
         return PUBLIC_GH_CLIENT_ID_DRAGONFLY;
     }
