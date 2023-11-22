@@ -46,6 +46,7 @@
     import { scrollIntoView } from "seamless-scroll-polyfill";
     import Modal from "$lib/Modal.svelte";
     import { contestSecondsLeft } from '$lib/stores';
+    import { base } from '$app/paths';
 
     const EMOJIS = ['🎊', '✨', '🎉', '🏆', '🎈', '🎖️'];
     const MAX_COUNT = 500;
@@ -308,7 +309,7 @@
         {/each}
         </div>
         <!-- TODO: show user rank -->
-        <div>Thanks for playing! Wanna <a href="/">try again</a>?</div>
+        <div>Thanks for playing! Wanna <a href={base}>try again</a>?</div>
     </div>
     {:else if !scores}
     <div class="loading">Loading scores...</div>

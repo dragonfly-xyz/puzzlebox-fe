@@ -6,6 +6,7 @@
     import Modal from '$lib/Modal.svelte';
     import { onMount } from "svelte";
     import { contestSecondsLeft } from "$lib/stores";
+    import { base } from '$app/paths';
 
     let isShowingIntro = false;
     function formatCountdown(seconds: number): string {
@@ -153,7 +154,7 @@
 
 <ModalBed>
     <header>
-        <div class="banner"><a class="text" href="/">Puzzlebox<span class="ext">.sol</span></a></div>
+        <div class="banner"><a class="text" href={base}>Puzzlebox<span class="ext">.sol</span></a></div>
         <div class="subbanner">
             <a href="https://www.dragonfly.xyz/">
                 A CTF from Dragonfly
@@ -172,8 +173,8 @@
     </main>
     <footer>
         <div class="terms">
-            <span><a href="/privacy" target="_blank">Privacy</a></span>
-            <span><a href="/rules" target="_blank">Rules</a></span>
+            <span><a href={`${base}/privacy`} target="_blank">Privacy</a></span>
+            <span><a href={`${base}/rules`} target="_blank">Rules</a></span>
         </div>
         {#if $contestSecondsLeft > 0}
         <div class="countdown">

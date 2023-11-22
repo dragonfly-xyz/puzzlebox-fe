@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
+    import { base } from '$app/paths';
 
     enum Actor {
         GoodGuy,
@@ -229,7 +230,7 @@
                     class:bad={d.actor === Actor.BadGuy}
                     bind:this={d.el}
                 >
-                    <img class="profile" src={d.actor === Actor.GoodGuy ? "/good-guy.png" : "/bad-guy.png"} />
+                    <img class="profile" src={d.actor === Actor.GoodGuy ? `${base}/good-guy.png` : `${base}/bad-guy.png`} />
                     { d.printedLine }
                 </div>
                 {/if}

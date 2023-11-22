@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { base } from '$app/paths';
 </script>
 <style lang="scss">
     .page {
@@ -10,5 +11,5 @@
     }
 </style>
 <div class="page">
-    <iframe src="/terms/privacy.html" />
+    <iframe src={`${base}/terms/privacy.html`} />
 </div>

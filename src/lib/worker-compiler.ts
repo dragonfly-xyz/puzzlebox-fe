@@ -1,3 +1,4 @@
+import { base } from '$app/paths';
 import type { CompilerInput, CompilerOutput } from './compile';
 
 const SOLJSON_URL = 'soljson-v0.8.19+commit.7dd6d404.js';
@@ -6,7 +7,7 @@ let worker: Worker | undefined;
 
 export function getWorker(): Worker {
     if (!worker) {
-        worker = new Worker('/compile.worker.js');
+        worker = new Worker(`${base}/compile.worker.js`);
     }
     return worker;
 }

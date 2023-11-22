@@ -9,6 +9,7 @@
     } from '$env/static/public';
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
+    import { base } from '$app/paths';
     
     const GH_AUTH_URL = 'https://github.com/login/oauth/authorize';
     const TW_AUTH_URL = 'https://twitter.com/i/oauth2/authorize';
@@ -179,7 +180,7 @@
                 aria-busy={!!isSigning}
                 disabled={!canSubmit}
                 on:click|preventDefault={signInWithGithub}>
-                <img class="icon" src="gh-icon.svg" />
+                <img class="icon" src={`${base}/gh-icon.svg`} />
                 Sign with Github
         </button>
         <button
@@ -187,7 +188,7 @@
             aria-busy={!!isSigning}
             disabled={!canSubmit}
                 on:click|preventDefault={signInWithTwitter}>
-                <img class="icon" src="tw-icon.svg" />
+                <img class="icon" src={`${base}/tw-icon.svg`} />
                 Sign with Twitter
         </button>
     </div>

@@ -15,9 +15,15 @@ const config = {
 			fallback: 'index.html',
 		}),
 		paths: {
-			base: dev ? '' : process.env.BASE_PATH,
+			base: '/puzzlebox-fe',
 			relative: true,
 		},
+	},
+	onwarn: (warning, handler) => {
+		const { code, frame } = warning;
+		if (code === "css-unused-selector") {
+			return;
+		}
 	},
 };
 

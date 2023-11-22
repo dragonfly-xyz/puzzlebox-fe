@@ -23,6 +23,7 @@
     import { formatScore } from '$lib/util';
     import { onMount, onDestroy } from 'svelte';
     import { animateFromResults } from './animator-utils';
+    import { base } from '$app/paths';
 
     const dispatch = createEventDispatcher();
 
@@ -42,7 +43,7 @@
 
     onMount(async () => {
         const gltfLoader = new GLTFLoader();
-        const model = await gltfLoader.loadAsync('puzzlebox.glb');
+        const model = await gltfLoader.loadAsync(`${base}/puzzlebox.glb`);
         const puzzleBox = model.scene;
         const animations = model.animations;
         const [w, h] = [el!.clientWidth, el!.clientHeight]

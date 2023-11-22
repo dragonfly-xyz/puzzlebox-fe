@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { base } from '$app/paths';
     import { onDestroy, onMount } from "svelte";
     import type { Score } from './types';
     import { formatScore } from "$lib/util";
@@ -132,7 +133,7 @@
 </style>
 
 <div class="component">
-    <div class="header"><a href="scores">HI SCORES</a></div>
+    <div class="header"><a href={`${base}/scores`}>HI SCORES</a></div>
     <div class="clip" bind:this={scoresElem}>
         {#if message}
         <div class="message">{ message }</div>
