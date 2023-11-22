@@ -15,7 +15,7 @@ const config = {
 			fallback: 'index.html',
 		}),
 		paths: {
-			base: '/puzzlebox-fe',
+			// base: dev ? '' : '/puzzlebox-fe',
 			relative: true,
 		},
 	},
