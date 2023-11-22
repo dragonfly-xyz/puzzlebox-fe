@@ -8,7 +8,6 @@
         PUBLIC_TW_CLIENT_ID,
     } from '$env/static/public';
     import { page } from '$app/stores';
-    import { onMount } from 'svelte';
     import { base } from '$app/paths';
     
     const GH_AUTH_URL = 'https://github.com/login/oauth/authorize';
@@ -43,6 +42,7 @@
             solution: solution!,
             email: submitEmail!,
             name: submitName!,
+            redirectUri: `${base}/scores`,
         });
     }
 
@@ -61,7 +61,7 @@
         const key = saveToStorage('github');
         const url = new URL(GH_AUTH_URL);
         url.searchParams.append('client_id', getGithubClientId());
-        url.searchParams.append('redirect_uri', new URL('/scores', $page.url).toString());
+        url.searchParams.append('redirect_uri', new URL(`${base}/scores`, $page.url).toString());
         url.searchParams.append('state', key);
         window.location.href = url.toString();
     }
@@ -72,7 +72,7 @@
         const url = new URL(TW_AUTH_URL);
         url.searchParams.append('response_type', 'code');
         url.searchParams.append('client_id', PUBLIC_TW_CLIENT_ID);
-        url.searchParams.append('redirect_uri', new URL('/scores', $page.url).toString());
+        url.searchParams.append('redirect_uri', new URL(`${base}/scores`, $page.url).toString());
         url.searchParams.append('state', key);
         url.searchParams.append('code_challenge', pkce.code_challenge);
         url.searchParams.append('code_challenge_method', 'S256');

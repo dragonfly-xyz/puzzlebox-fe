@@ -19,7 +19,7 @@
     export let actionText: string = '';
     export let busy: boolean = false;
     export let expanded = false;
-    export let saveId: string | undefined;
+    export let saveId: string | undefined = undefined;
     let isDirty = false;
     let savedContents: string | undefined;
     let showConfirmReset = false;

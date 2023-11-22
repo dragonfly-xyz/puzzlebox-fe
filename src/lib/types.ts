@@ -22,6 +22,7 @@ export interface SubmissionData {
     solution: string;
     email: string;
     name: string;
+    redirectUri: string;
     verifier?: string;
 }
 

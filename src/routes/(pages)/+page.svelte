@@ -1,14 +1,15 @@
 <script lang="ts">
     import HiScoreDisplay from '$lib/HiScoreDisplay.svelte';
     import CodeEditor from '$lib/CodeEditor.svelte';
-    import PuzzleRendering, { type SimResultsWithScore } from '$lib/PuzzleRendering.svelte';
+    import PuzzleRendering from '$lib/PuzzleRendering.svelte';
+    import type { SimResultsWithScore } from '$lib/types';
     import challengeCode from '$lib/sol/PuzzleBox.sol?raw';
     import solutionStubCode from '$lib/sol/Solution.sol?raw';
     import { simulate } from '$lib/simulate';
     import { compile } from '$lib/compile';
     import { solcCompile } from '$lib/worker-compiler';
     import { scoreSimResults } from '$lib/scoring';
-    import { getScores, submitScore } from '$lib/backend';
+    import { getScores } from '$lib/backend';
     import type { Score } from '$lib/types';
     import { onMount } from 'svelte';
     import { scrollIntoView } from 'seamless-scroll-polyfill';
@@ -24,7 +25,6 @@
     }
 
     let hiScores: Score[] | undefined;
-    let account: Account;
     let solveStep: SolveStep = SolveStep.None;
     let solutionError: string | undefined;
     let simResultsWithScore: SimResultsWithScore | undefined;

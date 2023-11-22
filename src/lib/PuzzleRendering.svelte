@@ -31,6 +31,7 @@
     export let simResultsWithScore: SimResultsWithScore | null = null;
 
     let isPrompting = false;
+    let isAnimating = false;
     let renderContext: {
         scene: Scene;
         camera: Camera;
@@ -124,6 +125,7 @@
         }
         dispatch('animating');
         isPrompting = false;
+        isAnimating = true;
         const { animator } = renderContext;
         await animator.animateReset().wait();
         animator.animateWait(1);
@@ -135,8 +137,9 @@
             await animator.wait();
         } catch (err) {
             console.error(err);
+        } finally {
+            isAnimating = false;
         }
-        console.log('complete');
         if (simResultsWithScore.score > 0) {
             isPrompting = true;
         }
@@ -154,6 +157,14 @@
         isPrompting = false;
         if (simResultsWithScore) {
             dispatch('submitScore');
+        }
+    }
+
+    function clickHandler(): void {
+        if (!isPrompting && isAnimating) {
+            isPrompting = true;
+        } else {
+            isPrompting = false;
         }
     }
 
@@ -226,21 +237,23 @@
 </style>
 
 <div class="component" bind:this={el}>
-    <div class="cover" class:active={isPrompting} on:click|stopPropagation={() => {isPrompting = false}}>
-        <div class="box" on:click|stopPropagation>
-            <div>
-                Your score: <span class="score">{ formatScore(simResultsWithScore?.score || 0) }</span>
+    <div class="cover" class:active={isPrompting || isAnimating} on:click|stopPropagation={() => clickHandler()}>
+        {#if isPrompting}
+            <div class="box" on:click|stopPropagation>
+                <div>
+                    Your score: <span class="score">{ formatScore(simResultsWithScore?.score || 0) }</span>
+                </div>
+                <div>
+                    <button
+                        class="pixel-button"
+                        on:click|stopPropagation={onSubmitScore}>
+                            Submit
+                    </button>
+                    <button class="pixel-button" on:click|stopPropagation={() => isPrompting = false}>
+                        Nah
+                    </button>
+                </div>
             </div>
-            <div>
-                <button
-                    class="pixel-button"
-                    on:click|stopPropagation={onSubmitScore}>
-                        Submit
-                </button>
-                <button class="pixel-button" on:click|stopPropagation={() => isPrompting = false}>
-                    Nah
-                </button>
-            </div>
-        </div>
+        {/if}
     </div>
 </div>
