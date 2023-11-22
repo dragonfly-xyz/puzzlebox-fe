@@ -1,7 +1,7 @@
 import { base } from '$app/paths';
 import type { CompilerInput, CompilerOutput } from './compile';
 
-const SOLJSON_URL = 'soljson-v0.8.19+commit.7dd6d404.js';
+const SOLJSON_URL = 'soljson-v0.8.23+commit.f704f362.js';
 
 let worker: Worker | undefined;
 
