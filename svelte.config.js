@@ -15,6 +15,7 @@ const config = {
 			fallback: 'index.html',
 		}),
 		paths: {
+			// Uncomment if hosting on naked github.io
 			// base: dev ? '' : '/puzzlebox-fe',
 			relative: true,
 		},
